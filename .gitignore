@@ -4,3 +4,5 @@ dist
 *.local
 gh_2.87.2_macOS_amd64/
 node_modules/
+TurboMathRacers.jsx
+TurboMathRacers_Spec.docx

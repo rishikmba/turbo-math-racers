@@ -169,7 +169,7 @@ function RaceTrack({ progress, speed, carColor, carStripe }) {
         <CarSVG color={carColor} stripe={carStripe} size={80} animating={speed > 5}/>
         {/* Exhaust puffs */}
         {speed > 6 && (
-          <div style={{ position: 'absolute', left: -8, top: '60%', fontSize: 10, opacity: 0.5, animation: 'puff 0.5s infinite' }}>&#x1F4A8;</div>
+          <div style={{ position: 'absolute', left: -8, top: '60%', fontSize: 10, opacity: 0.5, animation: 'puff 0.5s infinite' }}>{"\uD83D\uDCA8"}</div>
         )}
       </div>
       <style>{`@keyframes puff { 0%{opacity:0.6;transform:scale(0.8)} 100%{opacity:0;transform:scale(1.5) translateX(-8px)} }`}</style>
@@ -195,6 +195,8 @@ export default function TurboMathRacers() {
   const [choiceAnim, setChoiceAnim] = useState(null);
   const [localFactData, setLocalFactData] = useState({});
   const timerRef = useRef(null);
+  // Use a ref to track running coin total to avoid stale closure bugs
+  const runningCoinsRef = useRef(0);
 
   function loadData() {
     const pd = loadFromStorage("tmr_player", null);
@@ -242,6 +244,7 @@ export default function TurboMathRacers() {
     setFeedback(null);
     setChoiceAnim(null);
     setLocalFactData({ ...factData });
+    runningCoinsRef.current = 0;
     buildChoicesFor(qs[0]);
     setScreen("race");
   }
@@ -269,8 +272,10 @@ export default function TurboMathRacers() {
     setRaceProgress(Math.min(95, newProgress));
     setSpeed(newSpeed);
 
+    // Track totals via local variables (not stale state)
     const newCorrect = sessionStats.correct + (isCorrect ? 1 : 0);
     const newWrong = sessionStats.wrong + (isCorrect ? 0 : 1);
+    runningCoinsRef.current += coinsEarned;
 
     setSessionStats(prev => ({
       correct: prev.correct + (isCorrect ? 1 : 0),
@@ -286,10 +291,10 @@ export default function TurboMathRacers() {
       const nextIdx = qIndex + 1;
       if (nextIdx >= QUESTIONS_PER_RACE) {
         setRaceProgress(100);
-        const finalCorrect = newCorrect;
-        const finalCoins = sessionStats.coins + coinsEarned;
+        // Use ref for accurate running total (avoids stale closure)
+        const finalCoins = runningCoinsRef.current;
         // Session accuracy bonus per spec
-        const accuracy = finalCorrect / QUESTIONS_PER_RACE;
+        const accuracy = newCorrect / QUESTIONS_PER_RACE;
         let bonus = 0;
         if (accuracy === 1) bonus = 5;
         else if (accuracy >= 0.9) bonus = 3;
@@ -299,7 +304,7 @@ export default function TurboMathRacers() {
           ...playerData,
           coins: playerData.coins + totalSessionCoins,
           totalRaces: playerData.totalRaces + 1,
-          totalCorrect: playerData.totalCorrect + finalCorrect,
+          totalCorrect: playerData.totalCorrect + newCorrect,
           totalWrong: playerData.totalWrong + newWrong,
         };
         // Update sessionStats with bonus for display on results screen
@@ -317,7 +322,7 @@ export default function TurboMathRacers() {
 
   if (screen === "loading") return (
     <div style={S.page}><div style={{ margin: 'auto', textAlign: 'center' }}>
-      <div style={{ ...S.bigTitle, animation: 'pulse 1s infinite' }}>&#x1F3CE;&#xFE0F;</div>
+      <div style={{ ...S.bigTitle, animation: 'pulse 1s infinite' }}>{"\uD83C\uDFCE\uFE0F"}</div>
       <div style={S.bigTitle}>Loading...</div>
     </div></div>
   );
@@ -338,16 +343,16 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
       <div style={S.wrap}>
         <div style={{ textAlign: 'center', paddingTop: 8 }}>
           <div style={S.bigTitle}>TURBO</div>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 20, letterSpacing: 10, color: '#ff3d00', marginTop: -8 }}>MATH RACERS</div>
-          <div style={S.coinChip}>&#x1FA99; {playerData?.coins || 0} COINS</div>
+          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 24, letterSpacing: 10, color: '#ff3d00', marginTop: -8 }}>MATH RACERS</div>
+          <div style={S.coinChip}>{"\uD83E\uDE99"} {playerData?.coins || 0} COINS</div>
         </div>
 
         {/* Car showcase */}
         <div style={{ background: '#0d0d1a', borderRadius: 16, border: '1px solid #1a1a3a', padding: '16px 0 8px', textAlign: 'center', margin: '12px 0', cursor: 'pointer' }}
           onClick={() => setRevving(r => !r)}>
           <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={130} animating={revving}/>
-          <div style={{ color: '#666', fontSize: 11, letterSpacing: 3, marginTop: 6, fontWeight: 800 }}>{activeCar.name.toUpperCase()}</div>
-          <div style={{ color: '#333', fontSize: 10, marginTop: 2 }}>tap to rev &#x1F525;</div>
+          <div style={{ color: '#666', fontSize: 14, letterSpacing: 3, marginTop: 6, fontWeight: 800 }}>{activeCar.name.toUpperCase()}</div>
+          <div style={{ color: '#444', fontSize: 12, marginTop: 2 }}>tap to rev {"\uD83D\uDD25"}</div>
         </div>
 
         {/* Car picker */}
@@ -357,9 +362,9 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
             const sel = selectedCarId === car.id;
             return (
               <button key={car.id} onClick={() => !locked && selectCar(car.id)}
-                style={{ background: sel ? car.color : '#111', border: `2px solid ${sel ? car.color : locked ? '#1a1a1a' : '#333'}`, borderRadius: 10, padding: '7px 10px', cursor: locked ? 'not-allowed' : 'pointer', opacity: locked ? 0.4 : 1, color: sel ? '#000' : '#999', fontFamily: 'Nunito, sans-serif', fontWeight: 800, fontSize: 11, lineHeight: 1.4, textAlign: 'center', minWidth: 68 }}>
-                {locked ? '&#x1F512;' : ''} {car.name.split(' ')[0]}
-                {locked ? <div style={{ fontSize: 9 }}>{car.unlockCoins}&#x1FA99;</div> : null}
+                style={{ background: sel ? car.color : '#111', border: `2px solid ${sel ? car.color : locked ? '#1a1a1a' : '#333'}`, borderRadius: 10, padding: '8px 12px', cursor: locked ? 'not-allowed' : 'pointer', opacity: locked ? 0.4 : 1, color: sel ? '#000' : '#999', fontFamily: 'Nunito, sans-serif', fontWeight: 800, fontSize: 13, lineHeight: 1.4, textAlign: 'center', minWidth: 68 }}>
+                {locked ? "\uD83D\uDD12" : ""} {car.name.split(' ')[0]}
+                {locked ? <div style={{ fontSize: 11 }}>{car.unlockCoins}{"\uD83E\uDE99"}</div> : null}
               </button>
             );
           })}
@@ -370,22 +375,22 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
           {TIERS.map(tier => {
             const on = unlockedTiers.includes(tier.id);
             return (
-              <div key={tier.id} style={{ background: on ? tier.color + '18' : '#0d0d0d', border: `1.5px solid ${on ? tier.color : '#222'}`, borderRadius: 8, padding: '5px 10px', color: on ? tier.color : '#333', fontSize: 11, fontWeight: 800, textAlign: 'center', minWidth: 60 }}>
-                {on ? '\u26A1' : '\uD83D\uDD12'} {tier.name}
-                <div style={{ fontSize: 9, marginTop: 1 }}>{on ? tier.label : `${tier.unlockCoins}\uD83E\uDE99`}</div>
+              <div key={tier.id} style={{ background: on ? tier.color + '18' : '#0d0d0d', border: `1.5px solid ${on ? tier.color : '#222'}`, borderRadius: 8, padding: '6px 10px', color: on ? tier.color : '#444', fontSize: 13, fontWeight: 800, textAlign: 'center', minWidth: 60 }}>
+                {on ? "\u26A1" : "\uD83D\uDD12"} {tier.name}
+                <div style={{ fontSize: 11, marginTop: 1 }}>{on ? tier.label : `${tier.unlockCoins}\uD83E\uDE99`}</div>
               </div>
             );
           })}
         </div>
 
         <button onClick={onRace} style={S.raceBtnBig} onMouseOver={e => e.target.style.transform = 'scale(1.02)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>
-          &#x1F3C1; START RACE!
+          {"\uD83C\uDFC1"} START RACE!
         </button>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 10 }}>
-          <div style={S.pill}>&#x1F3CE;&#xFE0F; {playerData?.totalRaces || 0} races</div>
-          <div style={S.pill}>&#x2705; {playerData?.totalCorrect || 0} correct</div>
-          <button onClick={onDashboard} style={{ ...S.pill, background: '#1a1a2e', border: '1px solid #333', cursor: 'pointer', color: '#aaa' }}>&#x1F4CA; Stats</button>
+          <div style={S.pill}>{"\uD83C\uDFCE\uFE0F"} {playerData?.totalRaces || 0} races</div>
+          <div style={S.pill}>{"\u2705"} {playerData?.totalCorrect || 0} correct</div>
+          <button onClick={onDashboard} style={{ ...S.pill, background: '#1a1a2e', border: '1px solid #333', cursor: 'pointer', color: '#aaa' }}>{"\uD83D\uDCCA"} Stats</button>
         </div>
       </div>
       <GlobalStyles/>
@@ -405,29 +410,29 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
       <div style={S.wrap}>
         {/* HUD */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <div style={{ background: '#0d0d1a', border: `1.5px solid ${speedColor}66`, borderRadius: 10, padding: '5px 10px' }}>
-            <div style={{ color: speedColor, fontSize: 10, fontWeight: 900, letterSpacing: 1 }}>{speedLabel}</div>
+          <div style={{ background: '#0d0d1a', border: `1.5px solid ${speedColor}66`, borderRadius: 10, padding: '6px 12px' }}>
+            <div style={{ color: speedColor, fontSize: 13, fontWeight: 900, letterSpacing: 1 }}>{speedLabel}</div>
             <div style={{ display: 'flex', gap: 2, marginTop: 3 }}>
               {Array.from({ length: 10 }).map((_, i) => (
-                <div key={i} style={{ width: 5, height: 12, borderRadius: 2, background: i < speed ? speedColor : '#222', transition: 'background 0.2s' }}/>
+                <div key={i} style={{ width: 6, height: 14, borderRadius: 2, background: i < speed ? speedColor : '#222', transition: 'background 0.2s' }}/>
               ))}
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#555', fontSize: 9, letterSpacing: 2 }}>QUESTION</div>
-            <div style={{ fontFamily: 'Bangers, cursive', fontSize: 22, color: '#fff' }}>{qIndex + 1} / {QUESTIONS_PER_RACE}</div>
+            <div style={{ color: '#666', fontSize: 11, letterSpacing: 2, fontWeight: 800 }}>QUESTION</div>
+            <div style={{ fontFamily: 'Bangers, cursive', fontSize: 26, color: '#fff' }}>{qIndex + 1} / {QUESTIONS_PER_RACE}</div>
           </div>
-          <div style={{ background: '#ffdd0011', border: '1.5px solid #ffdd0044', borderRadius: 10, padding: '5px 10px', textAlign: 'right' }}>
-            <div style={{ color: '#ffdd00', fontSize: 10, fontWeight: 800 }}>COINS</div>
-            <div style={{ fontFamily: 'Bangers, cursive', fontSize: 20, color: '#ffdd00' }}>&#x1FA99;{sessionStats.coins}</div>
+          <div style={{ background: '#ffdd0011', border: '1.5px solid #ffdd0044', borderRadius: 10, padding: '6px 12px', textAlign: 'right' }}>
+            <div style={{ color: '#ffdd00', fontSize: 13, fontWeight: 800 }}>COINS</div>
+            <div style={{ fontFamily: 'Bangers, cursive', fontSize: 24, color: '#ffdd00' }}>{"\uD83E\uDE99"}{sessionStats.coins}</div>
           </div>
         </div>
 
         {/* Streak banner */}
         {streak >= 3 && (
           <div style={{ textAlign: 'center', marginBottom: 4 }}>
-            <span style={{ background: 'linear-gradient(90deg, #ff6d00, #ffdd00)', color: '#000', borderRadius: 20, padding: '2px 14px', fontSize: 11, fontWeight: 900, letterSpacing: 1 }}>
-              &#x1F525; {streak} STREAK &rarr; +2 COINS!
+            <span style={{ background: 'linear-gradient(90deg, #ff6d00, #ffdd00)', color: '#000', borderRadius: 20, padding: '3px 16px', fontSize: 14, fontWeight: 900, letterSpacing: 1 }}>
+              {"\uD83D\uDD25"} {streak} STREAK {"\u2192"} +2 COINS!
             </span>
           </div>
         )}
@@ -436,12 +441,12 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
         <RaceTrack progress={raceProgress} speed={feedback === 'correct' ? 10 : speed} carColor={activeCar.color} carStripe={activeCar.stripe}/>
 
         {/* Question card */}
-        <div style={{ background: feedback === 'correct' ? '#00e67610' : feedback === 'wrong' ? '#ff3d0010' : '#0d0d1a', border: `2px solid ${feedback === 'correct' ? '#00e676' : feedback === 'wrong' ? '#ff3d00' : '#1a1a3a'}`, borderRadius: 16, padding: '14px 20px', textAlign: 'center', margin: '10px 0', transition: 'all 0.2s' }}>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 56, letterSpacing: 4, lineHeight: 1 }}>
-            {q.a} <span style={{ color: '#ffdd00' }}>&times;</span> {q.b} <span style={{ color: '#333' }}>=</span> <span style={{ color: feedback ? (feedback === 'correct' ? '#00e676' : '#ff3d00') : '#555' }}>?</span>
+        <div style={{ background: feedback === 'correct' ? '#00e67610' : feedback === 'wrong' ? '#ff3d0010' : '#0d0d1a', border: `2px solid ${feedback === 'correct' ? '#00e676' : feedback === 'wrong' ? '#ff3d00' : '#1a1a3a'}`, borderRadius: 16, padding: '16px 20px', textAlign: 'center', margin: '10px 0', transition: 'all 0.2s' }}>
+          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 60, letterSpacing: 4, lineHeight: 1 }}>
+            {q.a} <span style={{ color: '#ffdd00' }}>{"\u00d7"}</span> {q.b} <span style={{ color: '#333' }}>=</span> <span style={{ color: feedback ? (feedback === 'correct' ? '#00e676' : '#ff3d00') : '#555' }}>?</span>
           </div>
-          {feedback === 'wrong' && <div style={{ color: '#ff6d50', fontWeight: 900, fontSize: 15, marginTop: 2 }}>&times; The answer is <span style={{ color: '#ffaa88', fontSize: 18 }}>{q.a * q.b}</span> &mdash; you'll see this again!</div>}
-          {feedback === 'correct' && <div style={{ color: '#00e676', fontWeight: 900, fontSize: 16, marginTop: 2 }}>&check; CORRECT! {streak >= 3 ? '\uD83D\uDD25 +2 coins!' : '+1 coin!'}</div>}
+          {feedback === 'wrong' && <div style={{ color: '#ff6d50', fontWeight: 900, fontSize: 17, marginTop: 4 }}>{"\u2717"} The answer is <span style={{ color: '#ffaa88', fontSize: 20 }}>{q.a * q.b}</span> {"\u2014"} you'll see this again!</div>}
+          {feedback === 'correct' && <div style={{ color: '#00e676', fontWeight: 900, fontSize: 18, marginTop: 4 }}>{"\u2713"} CORRECT! {streak >= 3 ? '\uD83D\uDD25 +2 coins!' : '+1 coin!'}</div>}
         </div>
 
         {/* Answer grid */}
@@ -464,7 +469,7 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
             }
             return (
               <button key={idx} onClick={() => onAnswer(choice, idx)} disabled={!!feedback}
-                style={{ background: bg, border: `2px solid ${border}`, borderRadius: 14, padding: '20px 10px', cursor: feedback ? 'default' : 'pointer', color, fontFamily: 'Bangers, cursive', fontSize: 36, letterSpacing: 2, transition: 'all 0.15s', transform: `scale(${scale})`, boxShadow: feedback && choiceAnim === idx && isCorrectAns ? '0 0 20px #00e67644' : 'none' }}>
+                style={{ background: bg, border: `2px solid ${border}`, borderRadius: 14, padding: '22px 10px', cursor: feedback ? 'default' : 'pointer', color, fontFamily: 'Bangers, cursive', fontSize: 40, letterSpacing: 2, transition: 'all 0.15s', transform: `scale(${scale})`, boxShadow: feedback && choiceAnim === idx && isCorrectAns ? '0 0 20px #00e67644' : 'none', minHeight: 70 }}>
                 {choice}
               </button>
             );
@@ -472,9 +477,9 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
         </div>
 
         {/* Progress dots */}
-        <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 5, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
           {Array.from({ length: QUESTIONS_PER_RACE }).map((_, i) => (
-            <div key={i} style={{ width: 9, height: 9, borderRadius: '50%', transition: 'background 0.3s', background: i < qIndex ? '#00e676' : i === qIndex ? '#ffdd00' : '#222' }}/>
+            <div key={i} style={{ width: 11, height: 11, borderRadius: '50%', transition: 'background 0.3s', background: i < qIndex ? '#00e676' : i === qIndex ? '#ffdd00' : '#222' }}/>
           ))}
         </div>
       </div>
@@ -496,9 +501,9 @@ function ResultsScreen({ sessionStats, playerData, factData, onHome, onRace, act
     <div style={S.page}>
       <div style={S.wrap}>
         <div style={{ textAlign: 'center', padding: '12px 0', opacity: show ? 1 : 0, transform: show ? 'translateY(0)' : 'translateY(20px)', transition: 'all 0.4s' }}>
-          <div style={{ fontSize: 52, animation: 'bounce 0.5s ease' }}>{grade[0]}</div>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 34, color: grade[2], letterSpacing: 3 }}>{grade[1]}</div>
-          <div style={{ color: '#555', fontSize: 12, marginTop: 4 }}>Race Complete!</div>
+          <div style={{ fontSize: 56, animation: 'bounce 0.5s ease' }}>{grade[0]}</div>
+          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 38, color: grade[2], letterSpacing: 3 }}>{grade[1]}</div>
+          <div style={{ color: '#666', fontSize: 15, marginTop: 4 }}>Race Complete!</div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0', opacity: show ? 1 : 0, transition: 'all 0.4s 0.1s' }}>
@@ -513,25 +518,25 @@ function ResultsScreen({ sessionStats, playerData, factData, onHome, onRace, act
             ['\uD83D\uDCB0 Total Coins', `${playerData?.coins || 0}`, '#ffaa00'],
           ].map(([label, val, col]) => (
             <div key={label} style={S.row}>
-              <span style={{ color: '#888', fontSize: 14 }}>{label}</span>
-              <span style={{ color: col, fontWeight: 900, fontSize: 16 }}>{val}</span>
+              <span style={{ color: '#999', fontSize: 16 }}>{label}</span>
+              <span style={{ color: col, fontWeight: 900, fontSize: 18 }}>{val}</span>
             </div>
           ))}
         </div>
 
         {sessionStats.wrongFacts.length > 0 && (
           <div style={{ ...S.card, background: '#0d0505', border: '1px solid #ff3d0033', opacity: show ? 1 : 0, transition: 'all 0.4s 0.3s' }}>
-            <div style={{ color: '#ff9100', fontWeight: 800, fontSize: 12, marginBottom: 8 }}>{'\uD83D\uDD01'} NEEDS PRACTICE &mdash; These will come back!</div>
+            <div style={{ color: '#ff9100', fontWeight: 800, fontSize: 14, marginBottom: 8 }}>{"\uD83D\uDD01"} NEEDS PRACTICE {"\u2014"} These will come back!</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {[...new Set(sessionStats.wrongFacts)].map(f => (
-                <span key={f} style={{ background: '#ff3d0022', color: '#ff7755', borderRadius: 8, padding: '3px 10px', fontSize: 12, fontWeight: 800 }}>{f}</span>
+                <span key={f} style={{ background: '#ff3d0022', color: '#ff7755', borderRadius: 8, padding: '4px 12px', fontSize: 14, fontWeight: 800 }}>{f}</span>
               ))}
             </div>
           </div>
         )}
 
-        <button onClick={onRace} style={{ ...S.raceBtnBig, opacity: show ? 1 : 0, transition: 'all 0.4s 0.4s', marginTop: 4 }}>&#x1F3CE;&#xFE0F; RACE AGAIN!</button>
-        <button onClick={onHome} style={{ ...S.raceBtnBig, background: 'transparent', border: '2px solid #222', color: '#888', marginTop: 8, fontSize: 16, opacity: show ? 1 : 0, transition: 'all 0.4s 0.5s' }}>&#x1F3E0; Garage</button>
+        <button onClick={onRace} style={{ ...S.raceBtnBig, opacity: show ? 1 : 0, transition: 'all 0.4s 0.4s', marginTop: 4 }}>{"\uD83C\uDFCE\uFE0F"} RACE AGAIN!</button>
+        <button onClick={onHome} style={{ ...S.raceBtnBig, background: 'transparent', border: '2px solid #222', color: '#888', marginTop: 8, fontSize: 18, opacity: show ? 1 : 0, transition: 'all 0.4s 0.5s' }}>{"\uD83C\uDFE0"} Garage</button>
       </div>
       <GlobalStyles/>
     </div>
@@ -569,19 +574,19 @@ function DashboardScreen({ playerData, factData, unlockedTiers, onBack }) {
     <div style={S.page}>
       <div style={S.wrap}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-          <button onClick={onBack} style={{ background: '#111', border: '1px solid #333', borderRadius: 8, padding: '7px 14px', color: '#aaa', cursor: 'pointer', fontWeight: 800, fontSize: 13, fontFamily: 'Nunito, sans-serif' }}>&larr; Back</button>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 28, color: '#ffdd00', letterSpacing: 3 }}>STATS</div>
+          <button onClick={onBack} style={{ background: '#111', border: '1px solid #333', borderRadius: 8, padding: '8px 16px', color: '#aaa', cursor: 'pointer', fontWeight: 800, fontSize: 15, fontFamily: 'Nunito, sans-serif' }}>{"\u2190"} Back</button>
+          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 32, color: '#ffdd00', letterSpacing: 3 }}>STATS</div>
         </div>
 
         <div style={S.card}>
           {[['\uD83C\uDFCE\uFE0F Races', playerData?.totalRaces || 0, '#aaa'],['\u2705 Correct', playerData?.totalCorrect || 0, '#00e676'],['\u274C Wrong', playerData?.totalWrong || 0, '#ff3d00'],['\uD83C\uDFAF Accuracy', ((playerData?.totalCorrect || 0) + (playerData?.totalWrong || 0) > 0) ? `${Math.round(playerData.totalCorrect / (playerData.totalCorrect + playerData.totalWrong) * 100)}%` : '\u2014', '#ffdd00']].map(([l, v, c]) => (
-            <div key={l} style={S.row}><span style={{ color: '#888', fontSize: 14 }}>{l}</span><span style={{ color: c, fontWeight: 900, fontSize: 16 }}>{v}</span></div>
+            <div key={l} style={S.row}><span style={{ color: '#999', fontSize: 16 }}>{l}</span><span style={{ color: c, fontWeight: 900, fontSize: 18 }}>{v}</span></div>
           ))}
         </div>
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
           {['tables', 'weak'].map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: '9px 0', borderRadius: 9, border: 'none', cursor: 'pointer', fontWeight: 900, fontSize: 12, fontFamily: 'Nunito, sans-serif', background: tab === t ? '#ffdd00' : '#111', color: tab === t ? '#000' : '#666', letterSpacing: 1 }}>
+            <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: '10px 0', borderRadius: 9, border: 'none', cursor: 'pointer', fontWeight: 900, fontSize: 14, fontFamily: 'Nunito, sans-serif', background: tab === t ? '#ffdd00' : '#111', color: tab === t ? '#000' : '#666', letterSpacing: 1 }}>
               {t === 'tables' ? '\uD83D\uDCCA BY TABLE' : '\uD83C\uDFAF WEAKEST'}
             </button>
           ))}
@@ -593,22 +598,22 @@ function DashboardScreen({ playerData, factData, unlockedTiers, onBack }) {
               const st = tableStats(t);
               const tierC = TIERS.find(ti => ti.tables.includes(t))?.color || '#888';
               return (
-                <div key={t} style={{ background: '#0d0d1a', borderRadius: 12, padding: '10px 14px', border: `1px solid ${tierC}22` }}>
+                <div key={t} style={{ background: '#0d0d1a', borderRadius: 12, padding: '12px 14px', border: `1px solid ${tierC}22` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                    <span style={{ color: tierC, fontWeight: 900, fontSize: 15 }}>&times; {t} table</span>
-                    <span style={{ color: '#555', fontSize: 11 }}>{st.mastered}/12 mastered {st.acc !== null ? `\u00b7 ${st.acc}%` : ''}</span>
+                    <span style={{ color: tierC, fontWeight: 900, fontSize: 17 }}>{"\u00d7"} {t} table</span>
+                    <span style={{ color: '#666', fontSize: 13 }}>{st.mastered}/12 mastered {st.acc !== null ? `\u00b7 ${st.acc}%` : ''}</span>
                   </div>
-                  <div style={{ background: '#111', borderRadius: 4, height: 5, marginBottom: 6 }}>
+                  <div style={{ background: '#111', borderRadius: 4, height: 6, marginBottom: 6 }}>
                     <div style={{ height: '100%', width: `${(st.mastered / 12) * 100}%`, background: tierC, borderRadius: 4, transition: 'width 0.8s' }}/>
                   </div>
-                  <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {Array.from({ length: 12 }, (_, i) => i + 1).map(n => {
                       const d = factData[getFactKey(t, n)];
                       const bucket = d?.bucket ?? -1;
                       const bg = bucket < 0 ? '#1a1a1a' : bucket === 0 ? '#7f0000' : bucket <= 2 ? '#7f4000' : bucket <= 3 ? '#6b5500' : '#004d20';
                       const dot = bucket < 0 ? '#333' : bucket === 0 ? '#ff5252' : bucket <= 2 ? '#ff9100' : bucket <= 3 ? '#ffdd00' : '#00e676';
                       return (
-                        <div key={n} title={`${t}\u00d7${n}=${t*n} bucket:${bucket}`} style={{ background: bg, border: `1px solid ${dot}66`, borderRadius: 5, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: dot, fontWeight: 900 }}>
+                        <div key={n} title={`${t}\u00d7${n}=${t*n} bucket:${bucket}`} style={{ background: bg, border: `1px solid ${dot}66`, borderRadius: 6, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: dot, fontWeight: 900 }}>
                           {n}
                         </div>
                       );
@@ -617,25 +622,25 @@ function DashboardScreen({ playerData, factData, unlockedTiers, onBack }) {
                 </div>
               );
             })}
-            <div style={{ fontSize: 10, color: '#444', textAlign: 'center' }}>{'\uD83D\uDD34'} Missed {'\u00b7'} {'\uD83D\uDFE0'} Learning {'\u00b7'} {'\uD83D\uDFE1'} Almost {'\u00b7'} {'\uD83D\uDFE2'} Mastered</div>
+            <div style={{ fontSize: 12, color: '#555', textAlign: 'center' }}>{"\uD83D\uDD34"} Missed {"\u00b7"} {"\uD83D\uDFE0"} Learning {"\u00b7"} {"\uD83D\uDFE1"} Almost {"\u00b7"} {"\uD83D\uDFE2"} Mastered</div>
           </div>
         )}
 
         {tab === 'weak' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {weakFacts.length === 0
-              ? <div style={{ color: '#555', textAlign: 'center', padding: 28 }}>No missed facts yet &mdash; keep racing! &#x1F3CE;&#xFE0F;</div>
+              ? <div style={{ color: '#666', textAlign: 'center', padding: 28, fontSize: 15 }}>No missed facts yet {"\u2014"} keep racing! {"\uD83C\uDFCE\uFE0F"}</div>
               : weakFacts.slice(0, 15).map((f, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#0d0d1a', borderRadius: 10, padding: '10px 14px', border: '1px solid #1a1a2a' }}>
                   <div>
-                    <span style={{ color: '#fff', fontWeight: 800 }}>{f.label}</span>
-                    <span style={{ color: '#444', fontSize: 11, marginLeft: 8 }}>missed {f.wrong}&times;, correct {f.correct}&times;</span>
+                    <span style={{ color: '#fff', fontWeight: 800, fontSize: 15 }}>{f.label}</span>
+                    <span style={{ color: '#555', fontSize: 13, marginLeft: 8 }}>missed {f.wrong}{"\u00d7"}, correct {f.correct}{"\u00d7"}</span>
                   </div>
                   <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                    <div style={{ background: '#1a1a1a', borderRadius: 3, height: 5, width: 46 }}>
+                    <div style={{ background: '#1a1a1a', borderRadius: 3, height: 6, width: 50 }}>
                       <div style={{ height: '100%', width: `${f.acc * 100}%`, background: f.acc < 0.5 ? '#ff3d00' : f.acc < 0.75 ? '#ffdd00' : '#00e676', borderRadius: 3 }}/>
                     </div>
-                    <span style={{ fontSize: 11, color: '#666' }}>{Math.round(f.acc * 100)}%</span>
+                    <span style={{ fontSize: 13, color: '#777' }}>{Math.round(f.acc * 100)}%</span>
                   </div>
                 </div>
               ))}
@@ -652,18 +657,17 @@ function DashboardScreen({ playerData, factData, unlockedTiers, onBack }) {
 const S = {
   page: { minHeight: '100vh', background: 'linear-gradient(160deg, #080812 0%, #0a0a1e 60%, #080812 100%)', display: 'flex', justifyContent: 'center', fontFamily: "'Nunito', sans-serif", color: '#fff' },
   wrap: { width: '100%', maxWidth: 430, padding: '16px 14px 36px' },
-  bigTitle: { fontFamily: 'Bangers, cursive', fontSize: 44, letterSpacing: 5, color: '#ffdd00', textShadow: '0 0 30px rgba(255,221,0,0.4), 2px 2px 0 #000', lineHeight: 1 },
-  coinChip: { display: 'inline-block', background: '#ffdd0018', border: '1.5px solid #ffdd0055', color: '#ffdd00', borderRadius: 20, padding: '4px 16px', fontSize: 14, fontWeight: 900, marginTop: 8 },
-  raceBtnBig: { width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #cc2200, #ff6600)', color: '#fff', fontFamily: 'Bangers, cursive', fontSize: 24, letterSpacing: 3, boxShadow: '0 4px 24px rgba(200,50,0,0.35)', transition: 'transform 0.15s, box-shadow 0.15s' },
-  card: { background: '#0d0d1a', border: '1px solid #1a1a2a', borderRadius: 14, padding: '10px 14px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 },
-  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #111', paddingBottom: 7 },
-  pill: { background: '#111', border: '1px solid #1a1a1a', borderRadius: 20, padding: '5px 14px', fontSize: 12, color: '#888', fontWeight: 800 },
+  bigTitle: { fontFamily: 'Bangers, cursive', fontSize: 48, letterSpacing: 5, color: '#ffdd00', textShadow: '0 0 30px rgba(255,221,0,0.4), 2px 2px 0 #000', lineHeight: 1 },
+  coinChip: { display: 'inline-block', background: '#ffdd0018', border: '1.5px solid #ffdd0055', color: '#ffdd00', borderRadius: 20, padding: '5px 18px', fontSize: 16, fontWeight: 900, marginTop: 8 },
+  raceBtnBig: { width: '100%', padding: '18px 0', borderRadius: 14, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #cc2200, #ff6600)', color: '#fff', fontFamily: 'Bangers, cursive', fontSize: 26, letterSpacing: 3, boxShadow: '0 4px 24px rgba(200,50,0,0.35)', transition: 'transform 0.15s, box-shadow 0.15s' },
+  card: { background: '#0d0d1a', border: '1px solid #1a1a2a', borderRadius: 14, padding: '12px 16px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10 },
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #111', paddingBottom: 8 },
+  pill: { background: '#111', border: '1px solid #1a1a1a', borderRadius: 20, padding: '6px 16px', fontSize: 14, color: '#888', fontWeight: 800 },
 };
 
 function GlobalStyles() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@700;800;900&display=swap');
       button:active { transform: scale(0.97) !important; }
       @keyframes bounce { 0%{transform:scale(0.5)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
       @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }

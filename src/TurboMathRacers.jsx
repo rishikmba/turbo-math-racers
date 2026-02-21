@@ -60,6 +60,189 @@ const CHAMP_BURST_MULTIPLIER_MIN = 1.10;
 const CHAMP_BURST_MULTIPLIER_MAX = 1.15;
 const CHAMP_BURST_DURATION = 1500;
 
+// ─── SOUND ENGINE (Web Audio API) ───────────────────────────────────────────
+
+const SFX = {
+  ctx: null,
+  muted: false,
+  musicNodes: null,
+
+  init() {
+    if (this.ctx) { this.ctx.resume(); return; }
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch { /* audio not supported */ }
+  },
+
+  _tone(freq, duration, type = 'sine', vol = 0.3, startDelay = 0) {
+    if (!this.ctx || this.muted) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, this.ctx.currentTime + startDelay);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + startDelay + duration);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(this.ctx.currentTime + startDelay);
+    osc.stop(this.ctx.currentTime + startDelay + duration + 0.05);
+  },
+
+  _noise(duration, vol = 0.15) {
+    if (!this.ctx || this.muted) return;
+    const bufferSize = this.ctx.sampleRate * duration;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * vol;
+    const src = this.ctx.createBufferSource();
+    const gain = this.ctx.createGain();
+    src.buffer = buffer;
+    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+    src.connect(gain);
+    gain.connect(this.ctx.destination);
+    src.start();
+  },
+
+  play(name) {
+    if (!this.ctx || this.muted) return;
+    try { this.ctx.resume(); } catch {}
+    switch (name) {
+      case 'correct':
+        this._tone(523, 0.12, 'sine', 0.25);        // C5
+        this._tone(659, 0.15, 'sine', 0.25, 0.08);   // E5
+        this._tone(784, 0.2, 'sine', 0.2, 0.16);     // G5
+        break;
+      case 'wrong':
+        this._tone(200, 0.25, 'sawtooth', 0.15);
+        this._tone(150, 0.3, 'sawtooth', 0.12, 0.1);
+        break;
+      case 'coin':
+        this._tone(1200, 0.08, 'sine', 0.2);
+        this._tone(1600, 0.12, 'sine', 0.18, 0.06);
+        break;
+      case 'streak':
+        this._tone(784, 0.08, 'sine', 0.2);           // G5
+        this._tone(988, 0.08, 'sine', 0.2, 0.06);     // B5
+        this._tone(1175, 0.08, 'sine', 0.2, 0.12);    // D6
+        this._tone(1568, 0.15, 'sine', 0.25, 0.18);   // G6
+        break;
+      case 'raceStart':
+        this._tone(440, 0.15, 'square', 0.12);
+        this._tone(554, 0.15, 'square', 0.12, 0.2);
+        this._tone(659, 0.25, 'square', 0.15, 0.4);
+        break;
+      case 'win':
+        this._tone(523, 0.15, 'sine', 0.25);
+        this._tone(659, 0.15, 'sine', 0.25, 0.12);
+        this._tone(784, 0.15, 'sine', 0.25, 0.24);
+        this._tone(1047, 0.35, 'sine', 0.3, 0.36);
+        // Add harmony
+        this._tone(659, 0.3, 'sine', 0.15, 0.36);
+        this._tone(784, 0.3, 'sine', 0.15, 0.36);
+        break;
+      case 'lose':
+        this._tone(392, 0.2, 'sine', 0.2);
+        this._tone(349, 0.2, 'sine', 0.18, 0.15);
+        this._tone(330, 0.3, 'sine', 0.15, 0.3);
+        this._tone(294, 0.4, 'sine', 0.12, 0.45);
+        break;
+      case 'pause':
+        this._tone(500, 0.15, 'sine', 0.12);
+        this._tone(350, 0.2, 'sine', 0.1, 0.08);
+        break;
+      case 'resume':
+        this._tone(350, 0.15, 'sine', 0.12);
+        this._tone(500, 0.2, 'sine', 0.15, 0.08);
+        break;
+      case 'levelUp':
+        [523, 587, 659, 784, 880, 988, 1047, 1319].forEach((f, i) => {
+          this._tone(f, 0.12, 'sine', 0.2 - i * 0.015, i * 0.08);
+        });
+        break;
+      case 'rev':
+        this._tone(80, 0.15, 'sawtooth', 0.1);
+        this._tone(120, 0.2, 'sawtooth', 0.12, 0.05);
+        this._tone(200, 0.15, 'sawtooth', 0.08, 0.15);
+        this._noise(0.25, 0.06);
+        break;
+      case 'tap':
+        this._noise(0.03, 0.08);
+        break;
+    }
+  },
+
+  startMusic() {
+    if (!this.ctx || this.muted || this.musicNodes) return;
+    try { this.ctx.resume(); } catch {}
+    const masterGain = this.ctx.createGain();
+    masterGain.gain.value = 0.06;
+    masterGain.connect(this.ctx.destination);
+
+    // Bass line: simple looping pattern
+    const bassNotes = [65, 82, 73, 87]; // C2, E2, D2, F2 area
+    let running = true;
+    const oscs = [];
+
+    const playBassLoop = () => {
+      if (!running || !this.ctx) return;
+      const now = this.ctx.currentTime;
+      bassNotes.forEach((freq, i) => {
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0.5, now + i * 0.5);
+        g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.5 + 0.45);
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start(now + i * 0.5);
+        osc.stop(now + i * 0.5 + 0.5);
+        oscs.push(osc);
+      });
+      // Light hi-hat rhythm
+      for (let i = 0; i < 8; i++) {
+        const bufLen = Math.floor(this.ctx.sampleRate * 0.03);
+        const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let j = 0; j < bufLen; j++) d[j] = (Math.random() * 2 - 1);
+        const src = this.ctx.createBufferSource();
+        const g = this.ctx.createGain();
+        src.buffer = buf;
+        g.gain.setValueAtTime(i % 2 === 0 ? 0.3 : 0.15, now + i * 0.25);
+        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.25 + 0.05);
+        src.connect(g);
+        g.connect(masterGain);
+        src.start(now + i * 0.25);
+      }
+    };
+
+    playBassLoop();
+    const interval = setInterval(() => {
+      if (!running) { clearInterval(interval); return; }
+      playBassLoop();
+    }, 2000);
+
+    this.musicNodes = { masterGain, interval, stop() { running = false; clearInterval(interval); } };
+  },
+
+  stopMusic() {
+    if (!this.musicNodes) return;
+    this.musicNodes.stop();
+    if (this.musicNodes.masterGain && this.ctx) {
+      try {
+        this.musicNodes.masterGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.5);
+      } catch {}
+    }
+    this.musicNodes = null;
+  },
+
+  setMuted(m) {
+    this.muted = m;
+    if (m) this.stopMusic();
+  }
+};
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function loadFromStorage(key, fallback) {
@@ -281,6 +464,17 @@ export default function TurboMathRacers() {
   // Pause
   const [paused, setPaused] = useState(false);
 
+  // Sound
+  const [muted, setMuted] = useState(() => loadFromStorage("tmr_muted", false));
+  function toggleMute() {
+    const newMuted = !muted;
+    setMuted(newMuted);
+    saveToStorage("tmr_muted", newMuted);
+    SFX.setMuted(newMuted);
+  }
+  // Keep SFX in sync with muted state on load
+  useEffect(() => { SFX.setMuted(muted); }, []);
+
   // Real-time speed engine refs
   const speedRef = useRef(2);
   const questionStartTimeRef = useRef(null);
@@ -408,6 +602,9 @@ export default function TurboMathRacers() {
     frameCountRef.current = 0;
 
     buildChoicesFor(qs[0]);
+    SFX.init();
+    SFX.play('raceStart');
+    SFX.startMusic();
     setScreen("race");
   }
 
@@ -459,6 +656,7 @@ export default function TurboMathRacers() {
   function handlePause() {
     if (paused) {
       // Resume
+      SFX.play('resume');
       const pauseDuration = performance.now() - pauseStartTimeRef.current;
       totalPausedTimeRef.current += pauseDuration;
       pausedRef.current = false;
@@ -471,6 +669,7 @@ export default function TurboMathRacers() {
       }
     } else {
       // Pause
+      SFX.play('pause');
       pausedRef.current = true;
       setPaused(true);
       pauseStartTimeRef.current = performance.now();
@@ -493,6 +692,7 @@ export default function TurboMathRacers() {
     const isCorrect = chosen === correct;
     setChoiceAnim(idx);
     setFeedback(isCorrect ? "correct" : "wrong");
+    SFX.play(isCorrect ? 'correct' : 'wrong');
 
     const key = getFactKey(q.a, q.b);
     const cur = localFactData[key] || { bucket: 0, correct: 0, wrong: 0 };
@@ -517,6 +717,8 @@ export default function TurboMathRacers() {
     const newStreak = isCorrect ? streak + 1 : 0;
     setStreak(newStreak);
     const coinsEarned = isCorrect ? (newStreak >= 3 ? 2 : 1) : 0;
+    if (isCorrect) { setTimeout(() => SFX.play('coin'), 100); }
+    if (newStreak === 3) { setTimeout(() => SFX.play('streak'), 150); }
     const progressStep = 100 / QUESTIONS_PER_RACE;
     const newProgress = raceProgress + (isCorrect ? progressStep : progressStep * 0.25);
     setRaceProgress(Math.min(95, newProgress));
@@ -554,6 +756,8 @@ export default function TurboMathRacers() {
         // Determine win/loss
         const playerWon = !champFinishedRef.current;
         setRaceResult(playerWon ? "win" : "loss");
+        SFX.stopMusic();
+        SFX.play(playerWon ? 'win' : 'lose');
 
         const newPd = {
           ...playerData,
@@ -609,7 +813,7 @@ export default function TurboMathRacers() {
     </div></div>
   );
 
-  if (screen === "home") return <HomeScreen playerData={playerData} unlockedTiers={unlockedTiers} unlockedCars={unlockedCars} selectedCarId={selectedCarId} selectCar={selectCar} activeCar={activeCar} onPreRace={() => setScreen("prerace")} onDashboard={() => setScreen("dashboard")} unlockedLevels={unlockedLevels} levelData={levelData}/>;
+  if (screen === "home") return <HomeScreen playerData={playerData} unlockedTiers={unlockedTiers} unlockedCars={unlockedCars} selectedCarId={selectedCarId} selectCar={selectCar} activeCar={activeCar} onPreRace={() => setScreen("prerace")} onDashboard={() => setScreen("dashboard")} unlockedLevels={unlockedLevels} levelData={levelData} muted={muted} toggleMute={toggleMute}/>;
   if (screen === "prerace") return <PreRaceScreen unlockedTiers={unlockedTiers} unlockedLevels={unlockedLevels} selectedGear={selectedGear} setSelectedGear={setSelectedGear} selectedLevel={selectedLevel} setSelectedLevel={setSelectedLevel} levelData={levelData} activeCar={activeCar} onStart={startRace} onBack={() => setScreen("home")}/>;
   if (screen === "race") return <RaceScreen q={questions[qIndex]} choices={choices} qIndex={qIndex} feedback={feedback} choiceAnim={choiceAnim} raceProgress={raceProgress} speed={speed} streak={streak} sessionStats={sessionStats} activeCar={activeCar} onAnswer={handleAnswer} champProgress={champProgress} champFinished={champFinished} paused={paused} onPause={handlePause} selectedLevel={selectedLevel}/>;
   if (screen === "results") return <ResultsScreen sessionStats={sessionStats} playerData={playerData} factData={factData} onHome={() => setScreen("home")} onPreRace={() => setScreen("prerace")} activeCar={activeCar} raceResult={raceResult} selectedLevel={selectedLevel} levelData={levelData} unlockedLevels={unlockedLevels}/>;
@@ -619,12 +823,16 @@ export default function TurboMathRacers() {
 
 // ─── HOME SCREEN ─────────────────────────────────────────────────────────────
 
-function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, selectCar, activeCar, onPreRace, onDashboard, unlockedLevels, levelData }) {
+function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, selectCar, activeCar, onPreRace, onDashboard, unlockedLevels, levelData, muted, toggleMute }) {
   const [revving, setRevving] = useState(false);
   return (
     <div style={S.page}>
       <div style={S.wrap}>
-        <div style={{ textAlign: 'center', paddingTop: 8 }}>
+        <div style={{ textAlign: 'center', paddingTop: 8, position: 'relative' }}>
+          {/* Mute toggle */}
+          <button onClick={() => { SFX.init(); toggleMute(); }} style={{ position: 'absolute', top: 8, right: 0, background: '#111', border: '1px solid #222', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', color: muted ? '#555' : '#ffdd00', fontSize: 18, lineHeight: 1, fontFamily: 'Nunito, sans-serif' }}>
+            {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
+          </button>
           <div style={S.bigTitle}>TURBO</div>
           <div style={{ fontFamily: 'Bangers, cursive', fontSize: 24, letterSpacing: 10, color: '#ff3d00', marginTop: -8 }}>MATH RACERS</div>
           <div style={S.coinChip}>{"\uD83E\uDE99"} {playerData?.coins || 0} COINS</div>
@@ -632,7 +840,7 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
 
         {/* Car showcase */}
         <div style={{ background: '#0d0d1a', borderRadius: 16, border: '1px solid #1a1a3a', padding: '16px 0 8px', textAlign: 'center', margin: '12px 0', cursor: 'pointer' }}
-          onClick={() => setRevving(r => !r)}>
+          onClick={() => { setRevving(r => !r); SFX.init(); SFX.play('rev'); }}>
           <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={130} animating={revving}/>
           <div style={{ color: '#666', fontSize: 14, letterSpacing: 3, marginTop: 6, fontWeight: 800 }}>{activeCar.name.toUpperCase()}</div>
           <div style={{ color: '#444', fontSize: 12, marginTop: 2 }}>tap to rev {"\uD83D\uDD25"}</div>
@@ -644,7 +852,7 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
             const locked = !unlockedCars.includes(car.id);
             const sel = selectedCarId === car.id;
             return (
-              <button key={car.id} onClick={() => !locked && selectCar(car.id)}
+              <button key={car.id} onClick={() => { if (!locked) { selectCar(car.id); SFX.init(); SFX.play('tap'); } }}
                 style={{ background: sel ? car.color : '#111', border: `2px solid ${sel ? car.color : locked ? '#1a1a1a' : '#333'}`, borderRadius: 10, padding: '8px 12px', cursor: locked ? 'not-allowed' : 'pointer', opacity: locked ? 0.4 : 1, color: sel ? '#000' : '#999', fontFamily: 'Nunito, sans-serif', fontWeight: 800, fontSize: 13, lineHeight: 1.4, textAlign: 'center', minWidth: 68 }}>
                 {locked ? "\uD83D\uDD12" : ""} {car.name.split(' ')[0]}
                 {locked ? <div style={{ fontSize: 11 }}>{car.unlockCoins}{"\uD83E\uDE99"}</div> : null}
@@ -653,20 +861,23 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
           })}
         </div>
 
-        {/* Gear unlocks */}
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
-          {TIERS.map(tier => {
-            const on = unlockedTiers.includes(tier.id);
-            return (
-              <div key={tier.id} style={{ background: on ? tier.color + '18' : '#0d0d0d', border: `1.5px solid ${on ? tier.color : '#222'}`, borderRadius: 8, padding: '6px 10px', color: on ? tier.color : '#444', fontSize: 13, fontWeight: 800, textAlign: 'center', minWidth: 60 }}>
-                {on ? "\u26A1" : "\uD83D\uDD12"} {tier.name}
-                <div style={{ fontSize: 11, marginTop: 1 }}>{on ? tier.label : `${tier.unlockCoins}\uD83E\uDE99`}</div>
-              </div>
-            );
-          })}
+        {/* Gear status (passive display, not interactive) */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ color: '#555', fontSize: 11, fontWeight: 700, letterSpacing: 2, textAlign: 'center', marginBottom: 6 }}>UNLOCKED GEARS</div>
+          <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {TIERS.map(tier => {
+              const on = unlockedTiers.includes(tier.id);
+              return (
+                <div key={tier.id} style={{ background: on ? tier.color + '0c' : '#080808', border: `1px solid ${on ? tier.color + '33' : '#1a1a1a'}`, borderRadius: 6, padding: '3px 8px', color: on ? tier.color + 'aa' : '#333', fontSize: 11, fontWeight: 700, textAlign: 'center' }}>
+                  {on ? "\u2713" : "\uD83D\uDD12"} {tier.name}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ color: '#444', fontSize: 10, textAlign: 'center', marginTop: 4 }}>Choose gear in Race Setup</div>
         </div>
 
-        <button onClick={onPreRace} style={S.raceBtnBig} onMouseOver={e => e.target.style.transform = 'scale(1.02)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>
+        <button onClick={() => { SFX.init(); SFX.play('tap'); onPreRace(); }} style={S.raceBtnBig} onMouseOver={e => e.target.style.transform = 'scale(1.02)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>
           {"\uD83C\uDFC1"} START RACE!
         </button>
 

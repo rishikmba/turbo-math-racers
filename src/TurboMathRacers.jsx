@@ -11,11 +11,11 @@ const TIERS = [
 ];
 
 const CARS = [
-  { id: 1, name: "Red Rocket",   color: "#cc2200", stripe: "#ff6644", unlockCoins: 0   },
-  { id: 2, name: "Blue Bolt",    color: "#1155cc", stripe: "#55aaff", unlockCoins: 30  },
-  { id: 3, name: "Green Ghost",  color: "#116622", stripe: "#44ee88", unlockCoins: 75  },
-  { id: 4, name: "Gold Chaser",  color: "#aa6600", stripe: "#ffee22", unlockCoins: 130 },
-  { id: 5, name: "Purple Storm", color: "#660088", stripe: "#dd66ff", unlockCoins: 200 },
+  { id: 1, name: "Starter Sedan",   color: "#cc2200", stripe: "#ff6644", unlockCoins: 0,   shape: "sedan"   },
+  { id: 2, name: "Street Racer",    color: "#1155cc", stripe: "#55aaff", unlockCoins: 30,  shape: "hatch"   },
+  { id: 3, name: "Speed Demon",     color: "#116622", stripe: "#44ee88", unlockCoins: 75,  shape: "sports"  },
+  { id: 4, name: "Monster Crusher", color: "#aa6600", stripe: "#ffee22", unlockCoins: 130, shape: "monster" },
+  { id: 5, name: "Turbo Beast",     color: "#660088", stripe: "#dd66ff", unlockCoins: 200, shape: "super"   },
 ];
 
 const QUESTIONS_PER_RACE = 12;
@@ -31,11 +31,17 @@ const LEVELS = [
   { id: 5, name: "Champion", champFinishTime: 38,  winsToUnlock: 3, color: "#d500f9" },
 ];
 
-const CHAMP_CAR = {
-  name: "The Champ",
-  color: "#b0b8c8",
-  stripe: "#ffd700",
+const CHAMP_CARS = {
+  1: { name: "Ol' Rusty",       color: "#8a7a6a", stripe: "#aa9966", shape: "beater"  },
+  2: { name: "Thunderbolt",     color: "#2a2a2a", stripe: "#cc0000", shape: "muscle"  },
+  3: { name: "Blue Lightning",  color: "#003388", stripe: "#ffdd00", shape: "racecar" },
+  4: { name: "Formula One",     color: "#cc0000", stripe: "#ffffff", shape: "f1"      },
+  5: { name: "Quantum",         color: "#1a0033", stripe: "#00ffcc", shape: "future"  },
 };
+
+function getChampCar(levelId) {
+  return CHAMP_CARS[levelId] || CHAMP_CARS[1];
+}
 
 // ─── SPEED ENGINE CONSTANTS ──────────────────────────────────────────────────
 
@@ -324,35 +330,190 @@ function getUnlockedLevels(levelData) {
   return unlocked;
 }
 
+// ─── CAR SHAPES ──────────────────────────────────────────────────────────────
+
+function stdWheels() {
+  return <>
+    <circle cx="32" cy="57" r="9" fill="#111"/><circle cx="32" cy="57" r="6" fill="#333"/><circle cx="32" cy="57" r="2.5" fill="#666"/>
+    <circle cx="88" cy="57" r="9" fill="#111"/><circle cx="88" cy="57" r="6" fill="#333"/><circle cx="88" cy="57" r="2.5" fill="#666"/>
+  </>;
+}
+
+const CAR_SHAPES = {
+  // ── PLAYER CARS ──────────────────────────────────────────────
+
+  // Car 1: Basic sedan — boxy, tall roofline, very plain
+  sedan: (color, stripe) => <>
+    <path d="M12 44 Q14 32 28 28 L40 24 L44 14 Q54 10 66 14 L70 24 L92 28 Q106 32 108 44 L108 52 Q108 58 102 58 L18 58 Q12 58 12 52 Z" fill={color}/>
+    <path d="M44 24 L46 14 Q54 10.5 64 14 L66 24 Z" fill={stripe}/>
+    <path d="M46 24 L47 16 Q54 12 63 16 L64 24 Z" fill="#aaddff" opacity="0.7"/>
+    <rect x="20" y="36" width="80" height="2" rx="1" fill={stripe} opacity="0.3"/>
+    {stdWheels()}
+    <ellipse cx="106" cy="40" rx="3" ry="2.5" fill="#ffff99" opacity="0.85"/>
+    <rect x="9" y="42" width="6" height="4" rx="1.5" fill="#ff3333" opacity="0.7"/>
+    <rect x="9" y="47" width="5" height="3" rx="1.5" fill="#333"/>
+  </>,
+
+  // Car 2: Sporty hatchback — lower, sloped rear, small spoiler
+  hatch: (color, stripe) => <>
+    <path d="M10 44 Q12 30 28 26 L46 20 Q56 16 70 20 L88 24 Q106 28 110 44 L110 52 Q110 58 104 58 L16 58 Q10 58 10 52 Z" fill={color}/>
+    <path d="M46 20 L50 10 Q58 7 68 10 L72 20 Z" fill={stripe}/>
+    <path d="M49 20 L52 12 Q58 9 66 12 L69 20 Z" fill="#aaddff" opacity="0.7"/>
+    <path d="M82 24 L82 20 L90 22 Z" fill={stripe} opacity="0.6"/>
+    <path d="M18 40 L30 36 L36 40 Z" fill={stripe} opacity="0.25"/>
+    {stdWheels()}
+    <ellipse cx="108" cy="40" rx="4" ry="3" fill="#ffff99" opacity="0.9"/>
+    <ellipse cx="108" cy="45" rx="3" ry="2" fill="#ffff99" opacity="0.6"/>
+    <rect x="7" y="45" width="7" height="3.5" rx="1.5" fill="#ff3333" opacity="0.7"/>
+  </>,
+
+  // Car 3: Sports car — very low, sleek curves, rear engine hump
+  sports: (color, stripe) => <>
+    <path d="M8 46 Q10 34 24 28 L44 20 Q54 14 72 18 L94 24 Q112 30 112 44 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={color}/>
+    <path d="M44 20 L48 12 Q56 8 70 12 L76 20 Z" fill={stripe}/>
+    <path d="M47 20 L50 14 Q56 10.5 68 14 L73 20 Z" fill="#aaddff" opacity="0.7"/>
+    <path d="M78 18 Q88 15 96 22 L90 24 Z" fill={color} stroke={stripe} strokeWidth="1" opacity="0.5"/>
+    <path d="M14 42 L36 36 L36 42 Z" fill={stripe} opacity="0.2"/>
+    {stdWheels()}
+    <ellipse cx="110" cy="40" rx="4" ry="2.5" fill="#ffff99" opacity="0.9"/>
+    <ellipse cx="110" cy="44" rx="3" ry="2" fill="#ffff99" opacity="0.6"/>
+    <rect x="5" y="46" width="7" height="3" rx="1.5" fill="#ff3333" opacity="0.7"/>
+  </>,
+
+  // Car 4: Monster truck — lifted body, huge wheels, roll cage
+  monster: (color, stripe) => <>
+    <path d="M20 38 L20 28 L32 24 L44 18 Q54 14 66 18 L78 24 L100 28 L100 38 L100 42 L20 42 Z" fill={color}/>
+    <path d="M44 18 L48 12 Q54 9 64 12 L68 18 Z" fill={stripe}/>
+    <path d="M47 18 L50 14 Q54 11 62 14 L65 18 Z" fill="#aaddff" opacity="0.65"/>
+    <rect x="46" y="10" width="2" height="8" rx="1" fill="#666"/>
+    <rect x="64" y="10" width="2" height="8" rx="1" fill="#666"/>
+    <rect x="44" y="9" width="24" height="2" rx="1" fill="#666"/>
+    <rect x="22" y="32" width="76" height="2" rx="1" fill={stripe} opacity="0.4"/>
+    <circle cx="32" cy="57" r="12" fill="#111"/><circle cx="32" cy="57" r="9" fill="#333"/><circle cx="32" cy="57" r="4" fill="#666"/>
+    <circle cx="88" cy="57" r="12" fill="#111"/><circle cx="88" cy="57" r="9" fill="#333"/><circle cx="88" cy="57" r="4" fill="#666"/>
+    <ellipse cx="99" cy="34" rx="3" ry="2" fill="#ffff99" opacity="0.85"/>
+    <rect x="17" y="34" width="6" height="3" rx="1.5" fill="#ff3333" opacity="0.7"/>
+    <path d="M20 42 L26 48 L20 48 Z" fill="#555" opacity="0.5"/>
+    <path d="M100 42 L94 48 L100 48 Z" fill="#555" opacity="0.5"/>
+  </>,
+
+  // Car 5: Supercar — ultra-low wedge, big rear wing, side intakes, angular
+  super: (color, stripe) => <>
+    <path d="M6 46 Q8 36 18 30 L42 22 Q52 14 68 16 L96 22 Q114 28 114 44 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M42 22 L48 13 Q56 9 68 13 L74 22 Z" fill={stripe}/>
+    <path d="M45 22 L50 15 Q56 11 66 15 L71 22 Z" fill="#aaddff" opacity="0.7"/>
+    <rect x="82" y="10" width="3" height="12" rx="1" fill="#444"/>
+    <rect x="95" y="10" width="3" height="12" rx="1" fill="#444"/>
+    <path d="M80 10 L100 10 L98 13 L82 13 Z" fill={stripe} opacity="0.8"/>
+    <path d="M16 38 L28 32 L28 42 Z" fill="#111" opacity="0.5"/>
+    <path d="M20 40 L30 35 L30 42 Z" fill={stripe} opacity="0.3"/>
+    {stdWheels()}
+    <ellipse cx="112" cy="40" rx="4" ry="2" fill="#ffff99" opacity="0.95"/>
+    <ellipse cx="112" cy="43" rx="3" ry="1.5" fill="#ffff99" opacity="0.7"/>
+    <rect x="3" y="46" width="7" height="2.5" rx="1" fill="#ff3333" opacity="0.8"/>
+    <path d="M6 52 L14 54 L6 54 Z" fill={stripe} opacity="0.3"/>
+  </>,
+
+  // ── CHAMP CARS ──────────────────────────────────────────────
+
+  // Champ Lv1: Beat-up junker — dented, rusty, antenna, mismatched panels
+  beater: (color, stripe) => <>
+    <path d="M14 44 Q16 32 30 28 L42 24 L46 16 Q54 12 64 16 L68 24 L90 28 Q104 32 106 44 L106 52 Q106 58 100 58 L20 58 Q14 58 14 52 Z" fill={color}/>
+    <path d="M46 24 L48 16 Q54 12.5 62 16 L64 24 Z" fill={stripe} opacity="0.6"/>
+    <path d="M49 24 L50 18 Q54 14.5 60 18 L61 24 Z" fill="#aaddff" opacity="0.5"/>
+    <rect x="68" y="8" width="1.5" height="16" rx="0.5" fill="#888"/>
+    <circle cx="69" cy="8" r="2" fill="#ff4444" opacity="0.7"/>
+    <rect x="72" y="28" width="14" height="10" rx="2" fill={stripe} opacity="0.15"/>
+    <path d="M30 36 L38 36 L36 42 L28 42 Z" fill="#5a4a3a" opacity="0.4"/>
+    {stdWheels()}
+    <ellipse cx="104" cy="40" rx="3" ry="2.5" fill="#ffff99" opacity="0.6"/>
+    <ellipse cx="104" cy="45" rx="2.5" ry="2" fill="#ffff99" opacity="0.4"/>
+    <rect x="11" y="44" width="6" height="3.5" rx="1.5" fill="#ff3333" opacity="0.5"/>
+  </>,
+
+  // Champ Lv2: Muscle car — long hood, short deck, hood scoop, wide
+  muscle: (color, stripe) => <>
+    <path d="M8 44 Q10 30 22 26 L60 20 Q66 16 74 20 L80 24 Q108 28 112 44 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={color}/>
+    <path d="M60 20 L64 12 Q68 9 76 12 L80 20 Z" fill={stripe}/>
+    <path d="M63 20 L66 14 Q68 11 74 14 L77 20 Z" fill="#aaddff" opacity="0.65"/>
+    <path d="M34 24 L52 22 L52 28 L34 28 Z" fill={stripe} opacity="0.5"/>
+    <path d="M38 22 L48 20 L48 24 L38 24 Z" fill="#222" opacity="0.4"/>
+    <rect x="14" y="36" width="92" height="2.5" rx="1" fill={stripe} opacity="0.25"/>
+    {stdWheels()}
+    <ellipse cx="110" cy="40" rx="4" ry="3" fill="#ffff99" opacity="0.9"/>
+    <ellipse cx="110" cy="45" rx="3" ry="2" fill="#ffff99" opacity="0.7"/>
+    <rect x="5" y="44" width="7" height="4" rx="2" fill="#ff3333" opacity="0.8"/>
+    <path d="M5 48 L12 48 L10 52 L5 52 Z" fill={stripe} opacity="0.3"/>
+  </>,
+
+  // Champ Lv3: Race car with body kit — low, big spoiler, side skirts, splitter
+  racecar: (color, stripe) => <>
+    <path d="M6 46 Q8 32 24 26 L46 18 Q56 13 72 18 L92 24 Q112 30 114 44 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M46 18 L50 10 Q58 6 70 10 L76 18 Z" fill={stripe}/>
+    <path d="M49 18 L52 12 Q58 8.5 68 12 L73 18 Z" fill="#aaddff" opacity="0.7"/>
+    <rect x="78" y="8" width="3" height="10" rx="1" fill="#444"/>
+    <rect x="90" y="8" width="3" height="10" rx="1" fill="#444"/>
+    <path d="M76 8 L95 8 L94 11 L77 11 Z" fill={stripe} opacity="0.7"/>
+    <path d="M6 50 L18 52 L6 54 Z" fill={stripe} opacity="0.5"/>
+    <path d="M12 42 L108 42 L108 44 L12 44 Z" fill={stripe} opacity="0.2"/>
+    <circle cx="50" cy="30" r="5" fill="#fff" opacity="0.15"/>
+    <text x="50" y="33" textAnchor="middle" fontSize="8" fill="#fff" fontWeight="900" opacity="0.5">1</text>
+    {stdWheels()}
+    <ellipse cx="112" cy="40" rx="4" ry="2.5" fill="#ffff99" opacity="0.9"/>
+    <rect x="3" y="46" width="7" height="3" rx="1.5" fill="#ff3333" opacity="0.8"/>
+  </>,
+
+  // Champ Lv4: F1 open-wheel — narrow nose, open cockpit, exposed wheels, rear wing
+  f1: (color, stripe) => <>
+    <path d="M24 40 L6 38 L6 42 L24 44 Z" fill={color}/>
+    <path d="M24 36 L24 48 L72 48 Q80 48 86 42 L86 36 Q80 30 72 30 L40 30 Z" fill={color}/>
+    <path d="M62 30 L66 22 Q70 20 74 22 L76 30 Z" fill="#222"/>
+    <path d="M64 30 L67 24 Q70 22 73 24 L75 30 Z" fill="#aaddff" opacity="0.5"/>
+    <path d="M86 40 L100 42 L100 46 L86 44 Z" fill={color}/>
+    <rect x="92" y="18" width="3" height="24" rx="1" fill="#444"/>
+    <rect x="102" y="18" width="3" height="24" rx="1" fill="#444"/>
+    <path d="M90 18 L107 18 L106 22 L91 22 Z" fill={stripe} opacity="0.8"/>
+    <path d="M6 36 L6 44 L10 44 L10 36 Z" fill={stripe} opacity="0.5"/>
+    <rect x="30" y="36" width="50" height="2" rx="1" fill={stripe} opacity="0.3"/>
+    <circle cx="28" cy="57" r="9" fill="#111"/><circle cx="28" cy="57" r="6" fill="#333"/><circle cx="28" cy="57" r="2.5" fill="#666"/>
+    <circle cx="96" cy="57" r="9" fill="#111"/><circle cx="96" cy="57" r="6" fill="#333"/><circle cx="96" cy="57" r="2.5" fill="#666"/>
+    <ellipse cx="4" cy="40" rx="3" ry="2" fill="#ffff99" opacity="0.8"/>
+  </>,
+
+  // Champ Lv5: Futuristic concept — smooth flowing curves, LED strips, canopy
+  future: (color, stripe) => <>
+    <path d="M8 46 Q10 34 20 28 L42 20 Q56 12 78 16 L98 22 Q114 30 114 44 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M42 20 L50 12 Q60 8 74 12 L80 20 Z" fill={stripe} opacity="0.3"/>
+    <path d="M46 20 L52 14 Q60 10 72 14 L76 20 Z" fill="#aaddff" opacity="0.5"/>
+    <path d="M12 44 L108 44 L108 46 L12 46 Z" fill={stripe} opacity="0.6"/>
+    <path d="M20 34 L100 30 L100 32 L20 36 Z" fill={stripe} opacity="0.3"/>
+    <ellipse cx="60" cy="16" rx="14" ry="4" fill={stripe} opacity="0.08"/>
+    {stdWheels()}
+    <path d="M108 36 L114 38 L114 44 L108 44 Z" fill={stripe} opacity="0.8"/>
+    <path d="M6 44 L12 42 L12 48 L6 48 Z" fill={stripe} opacity="0.8"/>
+    <ellipse cx="112" cy="40" rx="3" ry="4" fill={stripe} opacity="0.6"/>
+    <rect x="3" y="46" width="7" height="2" rx="1" fill={stripe} opacity="0.6"/>
+  </>,
+};
+
 // ─── CAR SVG ─────────────────────────────────────────────────────────────────
 
-function CarSVG({ color, stripe, size = 80, animating = false, flip = false }) {
+function CarSVG({ color, stripe, size = 80, animating = false, flip = false, shape = "sedan" }) {
+  const renderShape = CAR_SHAPES[shape] || CAR_SHAPES.sedan;
   return (
     <svg width={size} height={size * 0.55} viewBox="0 0 120 66" fill="none"
       style={{
         filter: animating ? `drop-shadow(0 0 10px ${color}) drop-shadow(0 0 20px ${color}88)` : `drop-shadow(2px 2px 6px #00000099)`,
         transition: 'filter 0.3s', transform: flip ? 'scaleX(-1)' : 'none',
       }}>
-      <path d="M10 44 Q12 28 30 22 L50 16 Q60 14 70 16 L90 22 Q108 28 110 44 L110 52 Q110 58 104 58 L16 58 Q10 58 10 52 Z" fill={color}/>
-      <path d="M35 22 L42 10 Q52 6 68 10 L78 22 Z" fill={stripe}/>
-      <path d="M38 22 L44 12 Q52 8.5 68 12 L74 22 Z" fill="#aaddff" opacity="0.75"/>
-      <circle cx="32" cy="57" r="9" fill="#111"/>
-      <circle cx="32" cy="57" r="6" fill="#333"/>
-      <circle cx="32" cy="57" r="2.5" fill="#666"/>
-      <circle cx="88" cy="57" r="9" fill="#111"/>
-      <circle cx="88" cy="57" r="6" fill="#333"/>
-      <circle cx="88" cy="57" r="2.5" fill="#666"/>
-      <path d="M44 43 L76 43 L74 52 L46 52 Z" fill={stripe} opacity="0.5"/>
-      <ellipse cx="108" cy="40" rx="4" ry="3" fill="#ffff99" opacity="0.9"/>
-      <ellipse cx="108" cy="46" rx="3" ry="2.5" fill="#ffff99" opacity="0.7"/>
-      <rect x="7" y="45" width="8" height="4" rx="2" fill="#333"/>
+      {renderShape(color, stripe)}
     </svg>
   );
 }
 
 // ─── RACE TRACK ──────────────────────────────────────────────────────────────
 
-function RaceTrack({ progress, speed, carColor, carStripe, champProgress, paused }) {
+function RaceTrack({ progress, speed, carColor, carStripe, carShape, champProgress, champCar, paused }) {
   const [lineOffset, setLineOffset] = useState(0);
   const speedForAnim = paused ? 0 : speed;
   useEffect(() => {
@@ -406,9 +567,9 @@ function RaceTrack({ progress, speed, carColor, carStripe, champProgress, paused
         transition: 'left 0.5s linear',
       }}>
         <div style={{ textAlign: 'center', marginBottom: -2 }}>
-          <span style={{ fontSize: 8, color: '#ffd700', fontWeight: 900, letterSpacing: 1, textShadow: '0 1px 3px #000' }}>THE CHAMP</span>
+          <span style={{ fontSize: 8, color: champCar.stripe, fontWeight: 900, letterSpacing: 1, textShadow: '0 1px 3px #000' }}>THE CHAMP</span>
         </div>
-        <CarSVG color={CHAMP_CAR.color} stripe={CHAMP_CAR.stripe} size={65} animating={champVisualSpeed > 2}/>
+        <CarSVG color={champCar.color} stripe={champCar.stripe} size={65} animating={champVisualSpeed > 2} shape={champCar.shape}/>
       </div>
       {/* Player Car (lower lane) */}
       <div style={{
@@ -419,7 +580,7 @@ function RaceTrack({ progress, speed, carColor, carStripe, champProgress, paused
         <div style={{ textAlign: 'center', marginBottom: -2 }}>
           <span style={{ fontSize: 8, color: '#fff', fontWeight: 900, letterSpacing: 1, textShadow: '0 1px 3px #000' }}>YOU</span>
         </div>
-        <CarSVG color={carColor} stripe={carStripe} size={80} animating={speed > 5}/>
+        <CarSVG color={carColor} stripe={carStripe} size={80} animating={speed > 5} shape={carShape}/>
         {/* Exhaust puffs */}
         {speed > 6 && (
           <div style={{ position: 'absolute', left: -8, top: '60%', fontSize: 10, opacity: 0.5, animation: 'puff 0.5s infinite' }}>{"\uD83D\uDCA8"}</div>
@@ -841,7 +1002,7 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
         {/* Car showcase */}
         <div style={{ background: '#0d0d1a', borderRadius: 16, border: '1px solid #1a1a3a', padding: '16px 0 8px', textAlign: 'center', margin: '12px 0', cursor: 'pointer' }}
           onClick={() => { setRevving(r => !r); SFX.init(); SFX.play('rev'); }}>
-          <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={130} animating={revving}/>
+          <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={130} animating={revving} shape={activeCar.shape}/>
           <div style={{ color: '#666', fontSize: 14, letterSpacing: 3, marginTop: 6, fontWeight: 800 }}>{activeCar.name.toUpperCase()}</div>
           <div style={{ color: '#444', fontSize: 12, marginTop: 2 }}>tap to rev {"\uD83D\uDD25"}</div>
         </div>
@@ -946,27 +1107,31 @@ function PreRaceScreen({ unlockedTiers, unlockedLevels, selectedGear, setSelecte
         </div>
 
         {/* Champ preview */}
+        {(() => { const cc = getChampCar(selectedLevel); return (
         <div style={{ background: '#0d0d1a', borderRadius: 16, border: '1px solid #1a1a3a', padding: '16px 0 12px', textAlign: 'center', margin: '8px 0 16px' }}>
           <div style={{ color: '#888', fontSize: 12, fontWeight: 800, letterSpacing: 2, marginBottom: 8 }}>YOUR OPPONENT</div>
-          <CarSVG color={CHAMP_CAR.color} stripe={CHAMP_CAR.stripe} size={100} animating={true}/>
-          <div style={{ color: '#ffd700', fontSize: 16, fontWeight: 900, letterSpacing: 2, marginTop: 6 }}>THE CHAMP</div>
+          <CarSVG color={cc.color} stripe={cc.stripe} size={100} animating={true} shape={cc.shape}/>
+          <div style={{ color: '#ffd700', fontSize: 16, fontWeight: 900, letterSpacing: 2, marginTop: 6 }}>{cc.name.toUpperCase()}</div>
           <div style={{ color: '#666', fontSize: 13, marginTop: 2 }}>
             {LEVELS.find(l => l.id === selectedLevel)?.name || 'Rookie'} Level
           </div>
         </div>
+        ); })()}
 
         {/* vs preview */}
+        {(() => { const cc = getChampCar(selectedLevel); return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 16 }}>
           <div style={{ textAlign: 'center' }}>
-            <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={60}/>
+            <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={60} shape={activeCar.shape}/>
             <div style={{ color: '#aaa', fontSize: 11, fontWeight: 800, marginTop: 2 }}>YOU</div>
           </div>
           <div style={{ fontFamily: 'Bangers, cursive', fontSize: 28, color: '#ff3d00' }}>VS</div>
           <div style={{ textAlign: 'center' }}>
-            <CarSVG color={CHAMP_CAR.color} stripe={CHAMP_CAR.stripe} size={60} animating={true}/>
-            <div style={{ color: '#ffd700', fontSize: 11, fontWeight: 800, marginTop: 2 }}>THE CHAMP</div>
+            <CarSVG color={cc.color} stripe={cc.stripe} size={60} animating={true} shape={cc.shape}/>
+            <div style={{ color: '#ffd700', fontSize: 11, fontWeight: 800, marginTop: 2 }}>{cc.name.toUpperCase()}</div>
           </div>
         </div>
+        ); })()}
 
         <button onClick={onStart} style={S.raceBtnBig} onMouseOver={e => e.target.style.transform = 'scale(1.02)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>
           {"\uD83C\uDFC1"} START RACE!
@@ -1023,16 +1188,16 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
         )}
 
         {/* Champ crossed finish banner */}
-        {champFinished && (
+        {champFinished && (() => { const cc = getChampCar(selectedLevel); return (
           <div style={{ textAlign: 'center', marginBottom: 4 }}>
-            <span style={{ background: 'linear-gradient(90deg, #b0b8c8, #ffd700)', color: '#000', borderRadius: 20, padding: '3px 16px', fontSize: 13, fontWeight: 900, letterSpacing: 1 }}>
-              {"\uD83C\uDFC1"} The Champ crossed the finish!
+            <span style={{ background: `linear-gradient(90deg, ${cc.color}, ${cc.stripe})`, color: '#fff', borderRadius: 20, padding: '3px 16px', fontSize: 13, fontWeight: 900, letterSpacing: 1, textShadow: '0 1px 3px #000' }}>
+              {"\uD83C\uDFC1"} {cc.name} crossed the finish!
             </span>
           </div>
-        )}
+        ); })()}
 
         {/* Track */}
-        <RaceTrack progress={raceProgress} speed={feedback === 'correct' ? 10 : speed} carColor={activeCar.color} carStripe={activeCar.stripe} champProgress={champProgress} paused={paused}/>
+        <RaceTrack progress={raceProgress} speed={feedback === 'correct' ? 10 : speed} carColor={activeCar.color} carStripe={activeCar.stripe} carShape={activeCar.shape} champProgress={champProgress} champCar={getChampCar(selectedLevel)} paused={paused}/>
 
         {/* Question card */}
         <div style={{ background: feedback === 'correct' ? '#00e67610' : feedback === 'wrong' ? '#ff3d0010' : '#0d0d1a', border: `2px solid ${feedback === 'correct' ? '#00e676' : feedback === 'wrong' ? '#ff3d00' : '#1a1a3a'}`, borderRadius: 16, padding: '16px 20px', textAlign: 'center', margin: '10px 0', transition: 'all 0.2s' }}>
@@ -1082,7 +1247,7 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
       {paused && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ fontFamily: 'Bangers, cursive', fontSize: 52, color: '#ffdd00', letterSpacing: 5, textShadow: '0 0 30px rgba(255,221,0,0.4)' }}>PAUSED</div>
-          <div style={{ color: '#888', fontSize: 14, margin: '8px 0 24px', fontWeight: 700 }}>The Champ is still racing...</div>
+          <div style={{ color: '#888', fontSize: 14, margin: '8px 0 24px', fontWeight: 700 }}>{getChampCar(selectedLevel).name} is still racing...</div>
           <button onClick={onPause} style={{ ...S.raceBtnBig, maxWidth: 300 }}>{"\u25B6\uFE0F"} RESUME</button>
         </div>
       )}
@@ -1121,7 +1286,7 @@ function ResultsScreen({ sessionStats, playerData, factData, onHome, onPreRace, 
           ) : (
             <>
               <div style={{ fontSize: 48, animation: 'bounce 0.5s ease' }}>{"\uD83C\uDFCE\uFE0F"}</div>
-              <div style={{ fontFamily: 'Bangers, cursive', fontSize: 36, color: '#b0b8c8', letterSpacing: 3 }}>THE CHAMP WINS!</div>
+              <div style={{ fontFamily: 'Bangers, cursive', fontSize: 36, color: getChampCar(selectedLevel).stripe, letterSpacing: 3 }}>{getChampCar(selectedLevel).name.toUpperCase()} WINS!</div>
               <div style={{ color: '#888', fontSize: 14, marginTop: 2 }}>Keep practicing — you'll get there!</div>
             </>
           )}
@@ -1143,12 +1308,12 @@ function ResultsScreen({ sessionStats, playerData, factData, onHome, onPreRace, 
         )}
 
         <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0', opacity: show ? 1 : 0, transition: 'all 0.4s 0.1s' }}>
-          <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={100} animating={true}/>
+          <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={100} animating={true} shape={activeCar.shape}/>
         </div>
 
         <div style={{ ...S.card, opacity: show ? 1 : 0, transition: 'all 0.4s 0.2s' }}>
           {[
-            ['\uD83C\uDFCE\uFE0F Race', `${raceResult === 'win' ? 'WIN' : 'LOSS'} vs The Champ`, raceResult === 'win' ? '#ffd700' : '#b0b8c8'],
+            ['\uD83C\uDFCE\uFE0F Race', `${raceResult === 'win' ? 'WIN' : 'LOSS'} vs ${getChampCar(selectedLevel).name}`, raceResult === 'win' ? '#ffd700' : getChampCar(selectedLevel).stripe],
             ['\uD83C\uDFC1 Level', `${levelName} (Lv${selectedLevel})`, LEVELS.find(l => l.id === selectedLevel)?.color || '#888'],
             ['\u2705 Correct', `${sessionStats.correct} / ${QUESTIONS_PER_RACE}`, '#00e676'],
             ['\uD83C\uDFAF Accuracy', `${accuracy}%`, grade[2]],

@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const DISPLAY_FONT = "'Space Grotesk', sans-serif";
 
 const TIERS = [
-  { id: 1, name: "GEAR 1", tables: [2, 5, 10], color: "#00e676", label: "\u00d72, \u00d75, \u00d710", unlockCoins: 0   },
-  { id: 2, name: "GEAR 2", tables: [3, 4],     color: "#ffdd00", label: "\u00d73, \u00d74",       unlockCoins: 20  },
-  { id: 3, name: "GEAR 3", tables: [6, 9],     color: "#ff9100", label: "\u00d76, \u00d79",       unlockCoins: 50  },
-  { id: 4, name: "GEAR 4", tables: [7, 8],     color: "#ff3d00", label: "\u00d77, \u00d78",       unlockCoins: 90  },
-  { id: 5, name: "GEAR 5", tables: [11, 12],   color: "#d500f9", label: "\u00d711, \u00d712",     unlockCoins: 140 },
+  { id: 1, name: "LEVEL 1", tables: [2, 5, 10], color: "#00e676", label: "\u00d72, \u00d75, \u00d710", unlockCoins: 0   },
+  { id: 2, name: "LEVEL 2", tables: [3, 4],     color: "#ffdd00", label: "\u00d73, \u00d74",       unlockCoins: 20  },
+  { id: 3, name: "LEVEL 3", tables: [6, 9],     color: "#ff9100", label: "\u00d76, \u00d79",       unlockCoins: 50  },
+  { id: 4, name: "LEVEL 4", tables: [7, 8],     color: "#ff3d00", label: "\u00d77, \u00d78",       unlockCoins: 90  },
+  { id: 5, name: "LEVEL 5", tables: [11, 12],   color: "#d500f9", label: "\u00d711, \u00d712",     unlockCoins: 140 },
 ];
 
 const CARS = [
@@ -23,14 +23,14 @@ const CARS = [
 const QUESTIONS_PER_RACE = 12;
 const MASTERY_THRESHOLD = 4;
 
-// ─── LEVEL SYSTEM ────────────────────────────────────────────────────────────
+// ─── LEAGUE SYSTEM ───────────────────────────────────────────────────────────
 
-const LEVELS = [
-  { id: 1, name: "Rookie",   champFinishTime: 120, winsToUnlock: 0, color: "#66bb6a" },
-  { id: 2, name: "Street",   champFinishTime: 85,  winsToUnlock: 3, color: "#ffdd00" },
-  { id: 3, name: "Circuit",  champFinishTime: 65,  winsToUnlock: 3, color: "#ff9100" },
-  { id: 4, name: "Pro",      champFinishTime: 50,  winsToUnlock: 3, color: "#ff3d00" },
-  { id: 5, name: "Champion", champFinishTime: 38,  winsToUnlock: 3, color: "#d500f9" },
+const LEAGUES = [
+  { id: 1, name: "Rookie",   champFinishTime: 90,  winsToUnlock: 0, color: "#66bb6a" },
+  { id: 2, name: "Street",   champFinishTime: 65,  winsToUnlock: 3, color: "#ffdd00" },
+  { id: 3, name: "Circuit",  champFinishTime: 50,  winsToUnlock: 3, color: "#ff9100" },
+  { id: 4, name: "Pro",      champFinishTime: 38,  winsToUnlock: 3, color: "#ff3d00" },
+  { id: 5, name: "Champion", champFinishTime: 28,  winsToUnlock: 3, color: "#d500f9" },
 ];
 
 const CHAMP_CARS = {
@@ -62,11 +62,11 @@ const BOOST_VERY_SLOW = 0.3;
 
 const WRONG_ANSWER_PENALTY = 2.5;
 
-const CHAMP_BURST_INTERVAL_MIN = 2;
-const CHAMP_BURST_INTERVAL_MAX = 4;
-const CHAMP_BURST_MULTIPLIER_MIN = 1.10;
-const CHAMP_BURST_MULTIPLIER_MAX = 1.15;
-const CHAMP_BURST_DURATION = 1500;
+const CHAMP_BURST_INTERVAL_MIN = 1;
+const CHAMP_BURST_INTERVAL_MAX = 3;
+const CHAMP_BURST_MULTIPLIER_MIN = 1.15;
+const CHAMP_BURST_MULTIPLIER_MAX = 1.25;
+const CHAMP_BURST_DURATION = 2000;
 
 // ─── SOUND ENGINE (Web Audio API) ───────────────────────────────────────────
 
@@ -399,13 +399,13 @@ function selectQuestions(factData, unlockedTiers) {
 function getUnlockedTiers(coins) { return TIERS.filter(t => coins >= t.unlockCoins).map(t => t.id); }
 function getUnlockedCars(coins) { return CARS.filter(c => coins >= c.unlockCoins).map(c => c.id); }
 
-function getUnlockedLevels(levelData) {
+function getUnlockedLeagues(levelData) {
   const unlocked = [1];
-  for (let i = 1; i < LEVELS.length; i++) {
-    const prevId = LEVELS[i - 1].id;
+  for (let i = 1; i < LEAGUES.length; i++) {
+    const prevId = LEAGUES[i - 1].id;
     const winsAtPrev = levelData.wins[String(prevId)] || 0;
-    if (winsAtPrev >= LEVELS[i].winsToUnlock) {
-      unlocked.push(LEVELS[i].id);
+    if (winsAtPrev >= LEAGUES[i].winsToUnlock) {
+      unlocked.push(LEAGUES[i].id);
     } else {
       break;
     }
@@ -413,21 +413,77 @@ function getUnlockedLevels(levelData) {
   return unlocked;
 }
 
+// ─── COLOR UTILITIES & GRADIENT DEFS ─────────────────────────────────────────
+
+function hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  return [parseInt(h.substring(0,2),16), parseInt(h.substring(2,4),16), parseInt(h.substring(4,6),16)];
+}
+function rgbToHex(r, g, b) {
+  return '#' + [r,g,b].map(c => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2,'0')).join('');
+}
+function lighten(hex, pct) {
+  const [r,g,b] = hexToRgb(hex);
+  return rgbToHex(r + (255-r)*pct, g + (255-g)*pct, b + (255-b)*pct);
+}
+function darken(hex, pct) {
+  const [r,g,b] = hexToRgb(hex);
+  return rgbToHex(r*(1-pct), g*(1-pct), b*(1-pct));
+}
+
+function carDefs(color, stripe, uid) {
+  return (
+    <defs>
+      {/* Metallic body gradient */}
+      <linearGradient id={`body-${uid}`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={lighten(color, 0.35)}/>
+        <stop offset="30%" stopColor={lighten(color, 0.12)}/>
+        <stop offset="55%" stopColor={color}/>
+        <stop offset="100%" stopColor={darken(color, 0.35)}/>
+      </linearGradient>
+      {/* Chrome/silver gradient for rims */}
+      <linearGradient id={`chrome-${uid}`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#eee"/>
+        <stop offset="40%" stopColor="#888"/>
+        <stop offset="100%" stopColor="#444"/>
+      </linearGradient>
+      {/* Glass gradient for windows */}
+      <linearGradient id={`glass-${uid}`} x1="0" y1="0" x2="0.3" y2="1">
+        <stop offset="0%" stopColor="#aaddff" stopOpacity="0.7"/>
+        <stop offset="50%" stopColor="#5599cc" stopOpacity="0.5"/>
+        <stop offset="100%" stopColor="#224466" stopOpacity="0.6"/>
+      </linearGradient>
+      {/* Specular highlight */}
+      <linearGradient id={`spec-${uid}`} x1="0" y1="0" x2="1" y2="0.5">
+        <stop offset="0%" stopColor="#fff" stopOpacity="0.25"/>
+        <stop offset="100%" stopColor="#fff" stopOpacity="0"/>
+      </linearGradient>
+      {/* Stripe gradient */}
+      <linearGradient id={`stripe-${uid}`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={lighten(stripe, 0.2)}/>
+        <stop offset="100%" stopColor={darken(stripe, 0.15)}/>
+      </linearGradient>
+    </defs>
+  );
+}
+
 // ─── CAR SHAPES ──────────────────────────────────────────────────────────────
 
-function stdWheels() {
+function stdWheels(uid) {
   const wheel = (cx) => <>
     <circle cx={cx} cy="57" r="9.5" fill="#0a0a0a"/>
     <circle cx={cx} cy="57" r="9" fill="#1a1a1a"/>
-    <circle cx={cx} cy="57" r="7" fill="#444"/>
+    <circle cx={cx} cy="57" r="7" fill={uid ? `url(#chrome-${uid})` : '#444'}/>
     <circle cx={cx} cy="57" r="6.5" fill="#3a3a3a"/>
     <circle cx={cx} cy="57" r="5" fill="#661111" opacity="0.3"/>
-    {[0, 72, 144, 216, 288].map((a, i) => {
-      const rad = a * Math.PI / 180;
-      return <line key={i} x1={cx} y1={57} x2={cx + Math.cos(rad) * 6} y2={57 + Math.sin(rad) * 6} stroke="#666" strokeWidth="1.8" strokeLinecap="round"/>;
-    })}
-    <circle cx={cx} cy="57" r="2" fill="#888"/>
-    <circle cx={cx} cy="57" r="1" fill="#aaa"/>
+    <g style={{ transformOrigin: `${cx}px 57px`, animation: 'wheelSpin 0.5s linear infinite' }}>
+      {[0, 72, 144, 216, 288].map((a, i) => {
+        const rad = a * Math.PI / 180;
+        return <line key={i} x1={cx} y1={57} x2={cx + Math.cos(rad) * 6} y2={57 + Math.sin(rad) * 6} stroke="#777" strokeWidth="1.8" strokeLinecap="round"/>;
+      })}
+    </g>
+    <circle cx={cx} cy="57" r="2" fill="#999"/>
+    <circle cx={cx} cy="57" r="1" fill="#bbb"/>
   </>;
   return <>{wheel(32)}{wheel(88)}</>;
 }
@@ -436,11 +492,14 @@ const CAR_SHAPES = {
   // ── PLAYER CARS ──────────────────────────────────────────────
 
   // Car 1: Toyota GR86 — compact coupe, long hood, sloped roofline
-  gr86: (color, stripe) => <>
+  gr86: (color, stripe, uid) => <>
+    {uid && carDefs(color, stripe, uid)}
     {/* Ground shadow */}
     <ellipse cx="60" cy="63" rx="48" ry="3" fill="#000" opacity="0.3"/>
     {/* Main body */}
-    <path d="M10 46 Q12 36 22 30 L40 24 L48 16 Q56 13 66 16 L72 22 L96 28 Q110 34 112 46 L112 52 Q112 58 106 58 L16 58 Q10 58 10 52 Z" fill={color}/>
+    <path d="M10 46 Q12 36 22 30 L40 24 L48 16 Q56 13 66 16 L72 22 L96 28 Q110 34 112 46 L112 52 Q112 58 106 58 L16 58 Q10 58 10 52 Z" fill={uid ? `url(#body-${uid})` : color}/>
+    {/* Specular highlight */}
+    {uid && <path d="M22 30 L72 22 L96 28 Q104 32 108 38 L90 30 L52 22 Z" fill={`url(#spec-${uid})`}/>}
     {/* Lower body panel */}
     <path d="M14 48 L108 48 L112 52 Q112 58 106 58 L16 58 Q10 58 10 52 L14 48 Z" fill="#000" opacity="0.15"/>
     {/* Hood crease */}
@@ -456,9 +515,9 @@ const CAR_SHAPES = {
     {/* Window frame */}
     <path d="M48 22 L52 14 Q58 11 66 14 L70 22 Z" fill="#111"/>
     {/* Windshield */}
-    <path d="M62 22 L66 15 Q62 13 58 14.5 L56 22 Z" fill="#88bbee" opacity="0.55"/>
+    <path d="M62 22 L66 15 Q62 13 58 14.5 L56 22 Z" fill={uid ? `url(#glass-${uid})` : '#88bbee'} opacity={uid ? 1 : 0.55}/>
     {/* Rear window */}
-    <path d="M50 22 L52 16 Q54 14 57 15 L55 22 Z" fill="#88bbee" opacity="0.4"/>
+    <path d="M50 22 L52 16 Q54 14 57 15 L55 22 Z" fill={uid ? `url(#glass-${uid})` : '#88bbee'} opacity={uid ? 0.8 : 0.4}/>
     {/* Side mirror */}
     <rect x="70" y="21" width="3" height="2" rx="0.8" fill="#222"/>
     {/* Front grille */}
@@ -477,15 +536,17 @@ const CAR_SHAPES = {
     <circle cx="9" cy="54" r="1.8" fill="#222"/><circle cx="9" cy="54" r="1.2" fill="#333"/>
     <circle cx="13" cy="54" r="1.8" fill="#222"/><circle cx="13" cy="54" r="1.2" fill="#333"/>
     {/* Side stripe accent */}
-    <path d="M20 40 L100 34 L100 36 L20 42 Z" fill={stripe} opacity="0.12"/>
-    {stdWheels()}
+    <path d="M20 40 L100 34 L100 36 L20 42 Z" fill={uid ? `url(#stripe-${uid})` : stripe} opacity="0.15"/>
+    {stdWheels(uid)}
   </>,
 
   // Car 2: Porsche 911 — iconic rear hump, flowing fastback, round headlights
-  porsche: (color, stripe) => <>
+  porsche: (color, stripe, uid) => <>
+    {uid && carDefs(color, stripe, uid)}
     <ellipse cx="60" cy="63" rx="48" ry="3" fill="#000" opacity="0.3"/>
     {/* Main body */}
-    <path d="M8 46 Q10 38 18 34 L30 30 L48 20 Q56 16 64 18 L72 22 Q80 24 86 22 Q96 18 100 22 L106 30 Q112 36 112 46 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={color}/>
+    <path d="M8 46 Q10 38 18 34 L30 30 L48 20 Q56 16 64 18 L72 22 Q80 24 86 22 Q96 18 100 22 L106 30 Q112 36 112 46 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={uid ? `url(#body-${uid})` : color}/>
+    {uid && <path d="M30 30 L72 22 Q80 24 86 22 Q96 18 100 22 L106 30 L86 24 L52 22 Z" fill={`url(#spec-${uid})`}/>}
     {/* Lower body */}
     <path d="M12 48 L106 48 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 L12 48 Z" fill="#000" opacity="0.12"/>
     {/* Rear engine hump highlight */}
@@ -504,9 +565,9 @@ const CAR_SHAPES = {
     {/* Window frame */}
     <path d="M48 20 L52 13 Q58 10 66 14 L70 22 Z" fill="#111"/>
     {/* Windshield */}
-    <path d="M62 22 L66 15 Q62 12 58 13 L56 22 Z" fill="#88bbee" opacity="0.5"/>
+    <path d="M62 22 L66 15 Q62 12 58 13 L56 22 Z" fill={uid ? `url(#glass-${uid})` : '#88bbee'} opacity={uid ? 1 : 0.5}/>
     {/* Quarter window */}
-    <path d="M50 20 L53 15 Q55 13.5 57 14 L55 22 Z" fill="#88bbee" opacity="0.35"/>
+    <path d="M50 20 L53 15 Q55 13.5 57 14 L55 22 Z" fill={uid ? `url(#glass-${uid})` : '#88bbee'} opacity={uid ? 0.8 : 0.35}/>
     {/* Side mirror */}
     <rect x="70" y="20" width="3" height="2.5" rx="1" fill="#222"/>
     {/* Round headlight - housing */}
@@ -524,15 +585,17 @@ const CAR_SHAPES = {
     {/* Exhaust */}
     <circle cx="8" cy="54" r="2" fill="#222"/><circle cx="8" cy="54" r="1.2" fill="#444"/>
     {/* Side stripe */}
-    <path d="M18 38 L102 30 L102 32 L18 40 Z" fill={stripe} opacity="0.12"/>
-    {stdWheels()}
+    <path d="M18 38 L102 30 L102 32 L18 40 Z" fill={uid ? `url(#stripe-${uid})` : stripe} opacity="0.15"/>
+    {stdWheels(uid)}
   </>,
 
   // Car 3: Lamborghini Aventador — ultra-angular wedge, sharp creases
-  aventador: (color, stripe) => <>
+  aventador: (color, stripe, uid) => <>
+    {uid && carDefs(color, stripe, uid)}
     <ellipse cx="60" cy="63" rx="48" ry="3" fill="#000" opacity="0.3"/>
     {/* Main body - angular wedge */}
-    <path d="M6 46 L10 36 L20 30 L44 22 L52 14 L68 14 L74 20 L96 24 L110 32 L114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M6 46 L10 36 L20 30 L44 22 L52 14 L68 14 L74 20 L96 24 L110 32 L114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={uid ? `url(#body-${uid})` : color}/>
+    {uid && <path d="M44 22 L68 14 L74 20 L96 24 L110 32 L96 26 L56 16 Z" fill={`url(#spec-${uid})`}/>}
     {/* Lower body */}
     <path d="M10 48 L110 48 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 L10 48 Z" fill="#000" opacity="0.15"/>
     {/* Sharp body crease line */}
@@ -550,9 +613,9 @@ const CAR_SHAPES = {
     {/* Window frame */}
     <path d="M52 22 L56 14 L66 14 L70 22 Z" fill="#111"/>
     {/* Windshield */}
-    <path d="M62 22 L65 14.5 L60 14 L58 22 Z" fill="#88bbee" opacity="0.5"/>
+    <path d="M62 22 L65 14.5 L60 14 L58 22 Z" fill={uid ? `url(#glass-${uid})` : '#88bbee'} opacity={uid ? 1 : 0.5}/>
     {/* Rear window */}
-    <path d="M54 22 L57 15 L59 15 L57 22 Z" fill="#88bbee" opacity="0.3"/>
+    <path d="M54 22 L57 15 L59 15 L57 22 Z" fill={uid ? `url(#glass-${uid})` : '#88bbee'} opacity={uid ? 0.8 : 0.3}/>
     {/* Y-shaped headlight */}
     <path d="M108 34 L114 36 L114 42 L108 42 Z" fill="#222"/>
     <path d="M109 36 L113 37 L111 39 L109 38 Z" fill="#ddeeff" opacity="0.9"/>
@@ -567,18 +630,20 @@ const CAR_SHAPES = {
     {/* Hexagonal exhaust */}
     <path d="M8 54 L10 53 L12 54 L12 56 L10 57 L8 56 Z" fill="#222" stroke="#444" strokeWidth="0.5"/>
     {/* Side stripe */}
-    <path d="M20 38 L104 30 L104 32 L20 40 Z" fill={stripe} opacity="0.15"/>
+    <path d="M20 38 L104 30 L104 32 L20 40 Z" fill={uid ? `url(#stripe-${uid})` : stripe} opacity="0.15"/>
     {/* Fender arches */}
     <path d="M96 46 Q96 38 102 32" fill="none" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
     <path d="M22 46 Q22 40 16 36" fill="none" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
-    {stdWheels()}
+    {stdWheels(uid)}
   </>,
 
   // Car 4: Bugatti Chiron — widest body, C-line, massive rounded rear
-  chiron: (color, stripe) => <>
+  chiron: (color, stripe, uid) => <>
+    {uid && carDefs(color, stripe, uid)}
     <ellipse cx="60" cy="63" rx="50" ry="3.5" fill="#000" opacity="0.3"/>
     {/* Main body - wide & muscular */}
-    <path d="M6 46 Q8 34 16 28 L36 22 L48 16 Q58 12 70 16 L84 20 Q96 22 104 28 Q114 34 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M6 46 Q8 34 16 28 L36 22 L48 16 Q58 12 70 16 L84 20 Q96 22 104 28 Q114 34 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={uid ? `url(#body-${uid})` : color}/>
+    {uid && <path d="M36 22 L70 16 L84 20 Q96 22 104 28 L86 22 L50 18 Z" fill={`url(#spec-${uid})`}/>}
     {/* Lower body */}
     <path d="M10 48 L110 48 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 L10 48 Z" fill="#000" opacity="0.12"/>
     {/* Muscular rear fender bulge */}
@@ -596,9 +661,9 @@ const CAR_SHAPES = {
     {/* Window frame */}
     <path d="M48 16 L52 10 Q60 7 70 10 L74 16 Z" fill="#111"/>
     {/* Windshield */}
-    <path d="M64 16 L69 11 Q64 8 60 9.5 L58 16 Z" fill="#88bbee" opacity="0.5"/>
+    <path d="M64 16 L69 11 Q64 8 60 9.5 L58 16 Z" fill={uid ? `url(#glass-${uid})` : '#88bbee'} opacity={uid ? 1 : 0.5}/>
     {/* Rear window */}
-    <path d="M50 16 L53 11.5 Q56 9.5 59 10.5 L57 16 Z" fill="#88bbee" opacity="0.35"/>
+    <path d="M50 16 L53 11.5 Q56 9.5 59 10.5 L57 16 Z" fill={uid ? `url(#glass-${uid})` : '#88bbee'} opacity={uid ? 0.8 : 0.35}/>
     {/* Horseshoe grille */}
     <path d="M108 34 L114 38 L114 46 L108 44 Z" fill="#111"/>
     <path d="M109 36 Q112 38 112 42 Q112 44 109 43" fill="none" stroke="#888" strokeWidth="1" opacity="0.5"/>
@@ -615,14 +680,16 @@ const CAR_SHAPES = {
     <circle cx="11" cy="53" r="1.5" fill="#222"/><circle cx="11" cy="53" r="0.9" fill="#444"/>
     <circle cx="7" cy="56" r="1.5" fill="#222"/><circle cx="7" cy="56" r="0.9" fill="#444"/>
     <circle cx="11" cy="56" r="1.5" fill="#222"/><circle cx="11" cy="56" r="0.9" fill="#444"/>
-    {stdWheels()}
+    {stdWheels(uid)}
   </>,
 
   // Car 5: McLaren P1 — teardrop, huge diffuser, butterfly doors, roof snorkel
-  mclaren: (color, stripe) => <>
+  mclaren: (color, stripe, uid) => <>
+    {uid && carDefs(color, stripe, uid)}
     <ellipse cx="60" cy="63" rx="48" ry="3" fill="#000" opacity="0.3"/>
     {/* Main body */}
-    <path d="M6 46 Q8 36 16 30 L40 22 Q50 14 66 16 L80 20 L98 26 Q114 32 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M6 46 Q8 36 16 30 L40 22 Q50 14 66 16 L80 20 L98 26 Q114 32 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={uid ? `url(#body-${uid})` : color}/>
+    {uid && <path d="M40 22 Q50 14 66 16 L80 20 L98 26 L80 22 L52 16 Z" fill={`url(#spec-${uid})`}/>}
     {/* Lower body */}
     <path d="M10 48 L108 48 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 L10 48 Z" fill="#000" opacity="0.15"/>
     {/* Butterfly door line */}
@@ -639,9 +706,9 @@ const CAR_SHAPES = {
     {/* Window frame */}
     <path d="M40 22 L46 12 Q54 8 66 12 L72 20 Z" fill="#111"/>
     {/* Windshield */}
-    <path d="M62 20 L65 13 Q60 10 55 11.5 L54 20 Z" fill="#88bbee" opacity="0.5"/>
+    <path d="M62 20 L65 13 Q60 10 55 11.5 L54 20 Z" fill={uid ? `url(#glass-${uid})` : '#88bbee'} opacity={uid ? 1 : 0.5}/>
     {/* Rear window */}
-    <path d="M42 22 L47 14 Q50 11 54 12 L52 20 Z" fill="#88bbee" opacity="0.3"/>
+    <path d="M42 22 L47 14 Q50 11 54 12 L52 20 Z" fill={uid ? `url(#glass-${uid})` : '#88bbee'} opacity={uid ? 0.8 : 0.3}/>
     {/* LED blade headlight */}
     <path d="M110 34 L114 36 L114 40 L110 39 Z" fill="#222"/>
     <line x1="111" y1="35.5" x2="113" y2="37" stroke="#ddeeff" strokeWidth="1.5" strokeLinecap="round" opacity="0.9"/>
@@ -661,14 +728,14 @@ const CAR_SHAPES = {
     <circle cx="11" cy="53" r="1.5" fill="#222"/><circle cx="11" cy="53" r="0.9" fill="#444"/>
     <circle cx="11" cy="56" r="1.5" fill="#222"/><circle cx="11" cy="56" r="0.9" fill="#444"/>
     {/* Side stripe */}
-    <path d="M20 36 L100 28 L100 30 L20 38 Z" fill={stripe} opacity="0.12"/>
-    {stdWheels()}
+    <path d="M20 36 L100 28 L100 30 L20 38 Z" fill={uid ? `url(#stripe-${uid})` : stripe} opacity="0.15"/>
+    {stdWheels(uid)}
   </>,
 
   // ── CHAMP CARS ──────────────────────────────────────────────
 
   // Champ Lv1: VW Beetle — round body, huge rear dome, bubbly
-  beetle: (color, stripe) => <>
+  beetle: (color, stripe, uid) => <>
     <ellipse cx="60" cy="63" rx="44" ry="3" fill="#000" opacity="0.25"/>
     {/* Main body - round */}
     <path d="M16 46 Q18 36 26 30 L36 26 L42 22 Q50 18 58 20 L64 24 Q72 22 80 18 Q92 16 98 24 L102 32 Q108 38 108 46 L108 52 Q108 58 102 58 L20 58 Q14 58 14 52 Z" fill={color}/>
@@ -709,11 +776,11 @@ const CAR_SHAPES = {
     {/* Antenna */}
     <rect x="62" y="12" width="1.2" height="10" rx="0.4" fill="#888"/>
     <circle cx="62.6" cy="11.5" r="1.2" fill="#ff4444" opacity="0.5"/>
-    {stdWheels()}
+    {stdWheels(uid)}
   </>,
 
   // Champ Lv2: Dodge Challenger — long flat hood, boxy, muscular
-  challenger: (color, stripe) => <>
+  challenger: (color, stripe, uid) => <>
     <ellipse cx="60" cy="63" rx="48" ry="3" fill="#000" opacity="0.3"/>
     {/* Main body - long & boxy */}
     <path d="M8 46 Q10 34 18 28 L56 22 Q62 18 70 18 L76 22 Q82 24 88 28 L106 32 Q112 36 112 46 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={color}/>
@@ -755,11 +822,11 @@ const CAR_SHAPES = {
     {/* Dual exhaust */}
     <circle cx="9" cy="54" r="2" fill="#222"/><circle cx="9" cy="54" r="1.3" fill="#444"/>
     <circle cx="14" cy="54" r="2" fill="#222"/><circle cx="14" cy="54" r="1.3" fill="#444"/>
-    {stdWheels()}
+    {stdWheels(uid)}
   </>,
 
   // Champ Lv3: Porsche GT3 RS — 911-based, massive rear wing, wide fenders
-  gt3: (color, stripe) => <>
+  gt3: (color, stripe, uid) => <>
     <ellipse cx="60" cy="63" rx="50" ry="3" fill="#000" opacity="0.3"/>
     {/* Main body */}
     <path d="M6 46 Q8 36 16 30 L32 26 L48 18 Q56 14 66 16 L72 20 Q80 22 86 20 Q96 16 102 24 L108 32 Q114 38 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
@@ -808,25 +875,28 @@ const CAR_SHAPES = {
     {/* Center-lock wheel hint (yellow centers) */}
     <circle cx="32" cy="57" r="1.2" fill={stripe} opacity="0.6"/>
     <circle cx="88" cy="57" r="1.2" fill={stripe} opacity="0.6"/>
-    {stdWheels()}
+    {stdWheels(uid)}
   </>,
 
   // Champ Lv4: Modern F1 — narrow nose, halo, exposed wheels, sidepods
-  f1: (color, stripe) => {
+  f1: (color, stripe, uid) => {
     const f1Wheel = (cx) => <>
       <circle cx={cx} cy="57" r="9.5" fill="#0a0a0a"/>
       <circle cx={cx} cy="57" r="9" fill="#1a1a1a"/>
-      <circle cx={cx} cy="57" r="7" fill="#444"/>
+      <circle cx={cx} cy="57" r="7" fill={uid ? `url(#chrome-${uid})` : '#444'}/>
       <circle cx={cx} cy="57" r="6.5" fill="#3a3a3a"/>
       <circle cx={cx} cy="57" r="5" fill="#661111" opacity="0.3"/>
-      {[0, 72, 144, 216, 288].map((a, i) => {
-        const rad = a * Math.PI / 180;
-        return <line key={i} x1={cx} y1={57} x2={cx + Math.cos(rad) * 6} y2={57 + Math.sin(rad) * 6} stroke="#666" strokeWidth="1.8" strokeLinecap="round"/>;
-      })}
-      <circle cx={cx} cy="57" r="2" fill="#888"/>
-      <circle cx={cx} cy="57" r="1" fill="#aaa"/>
+      <g style={{ transformOrigin: `${cx}px 57px`, animation: 'wheelSpin 0.5s linear infinite' }}>
+        {[0, 72, 144, 216, 288].map((a, i) => {
+          const rad = a * Math.PI / 180;
+          return <line key={i} x1={cx} y1={57} x2={cx + Math.cos(rad) * 6} y2={57 + Math.sin(rad) * 6} stroke="#777" strokeWidth="1.8" strokeLinecap="round"/>;
+        })}
+      </g>
+      <circle cx={cx} cy="57" r="2" fill="#999"/>
+      <circle cx={cx} cy="57" r="1" fill="#bbb"/>
     </>;
     return <>
+      {uid && carDefs(color, stripe, uid)}
       <ellipse cx="60" cy="63" rx="50" ry="2.5" fill="#000" opacity="0.2"/>
       {/* Front wing */}
       <path d="M4 36 L4 44 L24 42 L24 38 Z" fill={color}/>
@@ -874,7 +944,7 @@ const CAR_SHAPES = {
   },
 
   // Champ Lv5: Phantom X — futuristic concept, angular, canopy, LED strips
-  phantom: (color, stripe) => <>
+  phantom: (color, stripe, uid) => <>
     <ellipse cx="60" cy="63" rx="50" ry="3.5" fill="#000" opacity="0.3"/>
     {/* Main body - angular/aggressive */}
     <path d="M6 46 L10 34 L22 26 L44 18 L54 12 L72 14 L84 20 L100 26 L112 34 L114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
@@ -918,13 +988,14 @@ const CAR_SHAPES = {
     <line x1="8" y1="49" x2="8" y2="54" stroke="#333" strokeWidth="0.5"/>
     <line x1="10" y1="49" x2="10" y2="55" stroke="#333" strokeWidth="0.5"/>
     <line x1="12" y1="48" x2="12" y2="55" stroke="#333" strokeWidth="0.5"/>
-    {stdWheels()}
+    {stdWheels(uid)}
   </>,
 };
 
 // ─── CAR SVG ─────────────────────────────────────────────────────────────────
 
 function CarSVG({ color, stripe, size = 80, animating = false, flip = false, shape = "gr86" }) {
+  const uid = useId().replace(/:/g, '');
   const renderShape = CAR_SHAPES[shape] || CAR_SHAPES.gr86;
   return (
     <svg width={size} height={size * 0.55} viewBox="0 0 120 66" fill="none"
@@ -932,16 +1003,19 @@ function CarSVG({ color, stripe, size = 80, animating = false, flip = false, sha
         filter: animating ? `drop-shadow(0 0 10px ${color}) drop-shadow(0 0 20px ${color}88)` : `drop-shadow(2px 2px 6px #00000099)`,
         transition: 'filter 0.3s', transform: flip ? 'scaleX(-1)' : 'none',
       }}>
-      {renderShape(color, stripe)}
+      {renderShape(color, stripe, uid)}
     </svg>
   );
 }
 
 // ─── RACE TRACK ──────────────────────────────────────────────────────────────
 
-function RaceTrack({ progress, speed, carColor, carStripe, carShape, champProgress, champCar, paused }) {
+function RaceTrack({ progress, speed, carColor, carStripe, carShape, champProgress, champCar, paused, streak }) {
   const [lineOffset, setLineOffset] = useState(0);
   const speedForAnim = paused ? 0 : speed;
+  const prevSpeedRef = useRef(speed);
+  const [tilt, setTilt] = useState(0);
+
   useEffect(() => {
     let raf;
     const animate = () => {
@@ -952,7 +1026,19 @@ function RaceTrack({ progress, speed, carColor, carStripe, carShape, champProgre
     return () => cancelAnimationFrame(raf);
   }, [speedForAnim]);
 
+  // Speed-dependent car tilt
+  useEffect(() => {
+    const delta = speed - prevSpeedRef.current;
+    prevSpeedRef.current = speed;
+    if (delta > 0.5) setTilt(-2);
+    else if (delta < -0.5) setTilt(1.5);
+    const t = setTimeout(() => setTilt(0), 300);
+    return () => clearTimeout(t);
+  }, [speed]);
+
   const champVisualSpeed = Math.min(10, (champProgress < 100 ? 4 : 0));
+  const bounceDuration = speed > 3 ? Math.max(0.15, 0.6 - speed * 0.04) : 0;
+  const numSpeedLines = Math.min(8, Math.max(0, Math.floor(speed - 2)));
 
   return (
     <div style={{ position: 'relative', width: '100%', height: 148, overflow: 'hidden', background: '#0a0a1a', borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -962,6 +1048,34 @@ function RaceTrack({ progress, speed, carColor, carStripe, carShape, champProgre
       {[15, 40, 70, 90, 110, 200, 280, 340].map((x, i) => (
         <div key={i} style={{ position: 'absolute', top: 4 + (i % 3) * 10, left: x, width: 2, height: 2, borderRadius: '50%', background: '#fff', opacity: 0.5 }}/>
       ))}
+
+      {/* Far parallax layer: buildings */}
+      {[30, 110, 200, 290, 370].map((baseX, i) => {
+        const h = [22, 30, 18, 26, 20][i];
+        const w = [14, 10, 16, 12, 14][i];
+        const x = ((baseX - lineOffset * 2) % 430 + 430) % 430 - 20;
+        return (
+          <div key={`b${i}`} style={{ position: 'absolute', bottom: 48, left: x, width: w, height: h, background: '#0c0c18', borderRadius: '2px 2px 0 0', opacity: 0.6 }}>
+            {/* Lit windows */}
+            {[0.25, 0.6].map((wy, j) => [0.2, 0.6].map((wx, k) => (
+              <div key={`w${j}${k}`} style={{ position: 'absolute', left: `${wx * 100}%`, top: `${wy * 100}%`, width: 2, height: 2, background: '#ffdd00', opacity: Math.random() > 0.3 ? 0.5 : 0.15, borderRadius: 0.5 }}/>
+            )))}
+          </div>
+        );
+      })}
+
+      {/* Near parallax layer: lampposts */}
+      {[60, 160, 260, 360].map((baseX, i) => {
+        const x = ((baseX - lineOffset * 4) % 430 + 430) % 430 - 20;
+        return (
+          <div key={`lp${i}`} style={{ position: 'absolute', bottom: 48, left: x }}>
+            <div style={{ width: 2, height: 28, background: '#333', margin: '0 auto' }}/>
+            <div style={{ width: 6, height: 2, background: '#555', borderRadius: '2px 2px 0 0', marginLeft: -2 }}/>
+            <div style={{ position: 'absolute', top: 0, left: -2, width: 6, height: 4, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,220,100,0.4) 0%, transparent 70%)' }}/>
+          </div>
+        );
+      })}
+
       {/* Road */}
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 100, background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 100%)' }}/>
       {/* Road edge lines */}
@@ -979,13 +1093,20 @@ function RaceTrack({ progress, speed, carColor, carStripe, carShape, champProgre
       {/* Finish line */}
       <div style={{ position: 'absolute', right: 14, bottom: 0, width: 14, height: 100,
         background: 'repeating-conic-gradient(#fff 0% 25%, #000 0% 50%) 0 0 / 7px 7px', opacity: 0.85 }}/>
-      {/* Speed blur lines */}
-      {speed > 5 && [10, 30, 44].map((y, i) => (
-        <div key={i} style={{
-          position: 'absolute', top: y, left: 0, right: 0, height: 1.5,
-          background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) ${progress * 0.8}%, transparent 100%)`,
-        }}/>
-      ))}
+
+      {/* Animated speed lines */}
+      {numSpeedLines > 0 && Array.from({ length: numSpeedLines }).map((_, i) => {
+        const y = 55 + (i * 12) + (i % 2 ? 5 : 0);
+        return (
+          <div key={`sl${i}`} style={{
+            position: 'absolute', top: y, left: 0, right: '40%', height: 1.5,
+            background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,${0.08 + speed * 0.01}) 30%, transparent 100%)`,
+            animation: `speedLine ${0.4 - speed * 0.02}s linear infinite`,
+            animationDelay: `${i * 0.05}s`,
+          }}/>
+        );
+      })}
+
       {/* Champ Car (upper lane) */}
       <div style={{
         position: 'absolute', bottom: 58,
@@ -997,6 +1118,7 @@ function RaceTrack({ progress, speed, carColor, carStripe, carShape, champProgre
         </div>
         <CarSVG color={champCar.color} stripe={champCar.stripe} size={65} animating={champVisualSpeed > 2} shape={champCar.shape}/>
       </div>
+
       {/* Player Car (lower lane) */}
       <div style={{
         position: 'absolute', bottom: 8,
@@ -1006,13 +1128,48 @@ function RaceTrack({ progress, speed, carColor, carStripe, carShape, champProgre
         <div style={{ textAlign: 'center', marginBottom: -2 }}>
           <span style={{ fontSize: 8, color: '#fff', fontWeight: 900, letterSpacing: 1, textShadow: '0 1px 3px #000' }}>YOU</span>
         </div>
-        <CarSVG color={carColor} stripe={carStripe} size={80} animating={speed > 5} shape={carShape}/>
-        {/* Exhaust puffs */}
-        {speed > 6 && (
-          <div style={{ position: 'absolute', left: -8, top: '60%', fontSize: 10, opacity: 0.5, animation: 'puff 0.5s infinite' }}>{"\uD83D\uDCA8"}</div>
+        <div style={{
+          animation: bounceDuration > 0 ? `carBounce ${bounceDuration}s ease-in-out infinite` : 'none',
+          transform: `rotate(${tilt}deg)`,
+          transition: 'transform 0.3s ease-out',
+          transformOrigin: 'center bottom',
+        }}>
+          <CarSVG color={carColor} stripe={carStripe} size={80} animating={speed > 5} shape={carShape}/>
+        </div>
+
+        {/* SVG Smoke exhaust particles */}
+        {speed > 4 && (
+          <div style={{ position: 'absolute', left: -6, top: '50%', width: 20, height: 20, pointerEvents: 'none' }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{
+                position: 'absolute',
+                width: 6 + i * 2, height: 6 + i * 2,
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(180,180,200,0.3) 0%, transparent 70%)',
+                animation: `smoke ${0.6 + i * 0.15}s ease-out infinite`,
+                animationDelay: `${i * 0.18}s`,
+              }}/>
+            ))}
+          </div>
+        )}
+
+        {/* Fire trail for streaks >= 3 */}
+        {streak >= 3 && (
+          <div style={{ position: 'absolute', left: -14, top: '45%', width: 20, height: 20, pointerEvents: 'none' }}>
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} style={{
+                position: 'absolute',
+                width: 5 + i, height: 8 + i * 2,
+                borderRadius: '50% 50% 50% 50% / 60% 60% 40% 40%',
+                background: `radial-gradient(ellipse, ${i < 2 ? '#ff6600' : '#ffdd00'} 0%, transparent 70%)`,
+                animation: `fireTrail ${0.3 + i * 0.08}s ease-out infinite`,
+                animationDelay: `${i * 0.07}s`,
+                opacity: 0.8,
+              }}/>
+            ))}
+          </div>
         )}
       </div>
-      <style>{`@keyframes puff { 0%{opacity:0.6;transform:scale(0.8)} 100%{opacity:0;transform:scale(1.5) translateX(-8px)} }`}</style>
     </div>
   );
 }
@@ -1021,6 +1178,11 @@ function RaceTrack({ progress, speed, carColor, carStripe, carShape, champProgre
 
 export default function TurboMathRacers() {
   const [screen, setScreen] = useState("loading");
+  const [transitioning, setTransitioning] = useState(false);
+  const transitionTo = (target) => {
+    setTransitioning(true);
+    setTimeout(() => { setScreen(target); setTransitioning(false); }, 200);
+  };
   const [playerData, setPlayerData] = useState(null);
   const [factData, setFactData] = useState({});
   const [selectedCarId, setSelectedCarId] = useState(1);
@@ -1038,10 +1200,10 @@ export default function TurboMathRacers() {
   // Use a ref to track running coin total to avoid stale closure bugs
   const runningCoinsRef = useRef(0);
 
-  // Level system
+  // League system
   const [levelData, setLevelData] = useState({ wins: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 } });
   const [selectedLevel, setSelectedLevel] = useState(1);
-  const [selectedGear, setSelectedGear] = useState(1);
+  const [selectedLeague, setSelectedLeague] = useState(1);
 
   // Opponent car
   const [champProgress, setChampProgress] = useState(0);
@@ -1075,7 +1237,7 @@ export default function TurboMathRacers() {
   const champSpeedMultiplierRef = useRef(1);
   const champBurstTimeoutRef = useRef(null);
   const nextBurstAtQuestionRef = useRef(0);
-  const selectedLevelRef = useRef(1);
+  const selectedLeagueRef = useRef(1);
 
   // Pause refs
   const pausedRef = useRef(false);
@@ -1100,8 +1262,8 @@ export default function TurboMathRacers() {
     setLocalFactData(fd);
     setSelectedCarId(sc);
     setLevelData(ld);
-    setSelectedGear(lc.gear);
-    setSelectedLevel(lc.level);
+    setSelectedLevel(lc.gear);
+    setSelectedLeague(lc.level);
     setScreen("home");
   }
 
@@ -1133,7 +1295,7 @@ export default function TurboMathRacers() {
     setChoices(all);
   }
 
-  const unlockedLevels = getUnlockedLevels(levelData);
+  const unlockedLeagues = getUnlockedLeagues(levelData);
 
   function scheduleNextChampBurst(currentQIndex) {
     const gap = CHAMP_BURST_INTERVAL_MIN + Math.floor(Math.random() * (CHAMP_BURST_INTERVAL_MAX - CHAMP_BURST_INTERVAL_MIN + 1));
@@ -1150,8 +1312,8 @@ export default function TurboMathRacers() {
   }
 
   function startRace() {
-    // Use selectedGear to filter tiers for question pool
-    const tiersForRace = unlockedTiers.filter(t => t <= selectedGear);
+    // Use selectedLevel to filter tiers for question pool
+    const tiersForRace = unlockedTiers.filter(t => t <= selectedLevel);
     const qs = selectQuestions(factData, tiersForRace.length > 0 ? tiersForRace : [1]);
     setQuestions(qs);
     setQIndex(0);
@@ -1166,7 +1328,7 @@ export default function TurboMathRacers() {
     runningCoinsRef.current = 0;
 
     // Save last-used combo
-    saveToStorage("tmr_last_combo", { gear: selectedGear, level: selectedLevel });
+    saveToStorage("tmr_last_combo", { gear: selectedLevel, level: selectedLeague });
 
     // Initialize opponent
     champProgressRef.current = 0;
@@ -1175,7 +1337,7 @@ export default function TurboMathRacers() {
     setChampFinished(false);
     champSpeedMultiplierRef.current = 1;
     setRaceResult(null);
-    selectedLevelRef.current = selectedLevel;
+    selectedLeagueRef.current = selectedLeague;
     scheduleNextChampBurst(0);
 
     // Initialize pause
@@ -1212,7 +1374,7 @@ export default function TurboMathRacers() {
 
       // Champ progress (ALWAYS, even when paused — cost of pausing)
       if (!champFinishedRef.current) {
-        const level = LEVELS.find(l => l.id === selectedLevelRef.current);
+        const level = LEAGUES.find(l => l.id === selectedLeagueRef.current);
         if (level) {
           const champRate = (100 / level.champFinishTime) * champSpeedMultiplierRef.current;
           champProgressRef.current = Math.min(100, champProgressRef.current + champRate * delta);
@@ -1356,11 +1518,11 @@ export default function TurboMathRacers() {
           totalLosses: (playerData.totalLosses || 0) + (playerWon ? 0 : 1),
         };
 
-        // Update level wins on player win
+        // Update league wins on player win
         if (playerWon) {
           const newLd = {
             ...levelData,
-            wins: { ...levelData.wins, [String(selectedLevel)]: (levelData.wins[String(selectedLevel)] || 0) + 1 }
+            wins: { ...levelData.wins, [String(selectedLeague)]: (levelData.wins[String(selectedLeague)] || 0) + 1 }
           };
           setLevelData(newLd);
           saveLevelData(newLd);
@@ -1400,17 +1562,19 @@ export default function TurboMathRacers() {
     </div></div>
   );
 
-  if (screen === "home") return <HomeScreen playerData={playerData} unlockedTiers={unlockedTiers} unlockedCars={unlockedCars} selectedCarId={selectedCarId} selectCar={selectCar} activeCar={activeCar} onPreRace={() => setScreen("prerace")} onDashboard={() => setScreen("dashboard")} unlockedLevels={unlockedLevels} levelData={levelData} muted={muted} toggleMute={toggleMute}/>;
-  if (screen === "prerace") return <PreRaceScreen unlockedTiers={unlockedTiers} unlockedLevels={unlockedLevels} selectedGear={selectedGear} setSelectedGear={setSelectedGear} selectedLevel={selectedLevel} setSelectedLevel={setSelectedLevel} levelData={levelData} activeCar={activeCar} onStart={startRace} onBack={() => setScreen("home")}/>;
-  if (screen === "race") return <RaceScreen q={questions[qIndex]} choices={choices} qIndex={qIndex} feedback={feedback} choiceAnim={choiceAnim} raceProgress={raceProgress} speed={speed} streak={streak} sessionStats={sessionStats} activeCar={activeCar} onAnswer={handleAnswer} champProgress={champProgress} champFinished={champFinished} paused={paused} onPause={handlePause} selectedLevel={selectedLevel}/>;
-  if (screen === "results") return <ResultsScreen sessionStats={sessionStats} playerData={playerData} factData={factData} onHome={() => setScreen("home")} onPreRace={() => setScreen("prerace")} activeCar={activeCar} raceResult={raceResult} selectedLevel={selectedLevel} levelData={levelData} unlockedLevels={unlockedLevels}/>;
-  if (screen === "dashboard") return <DashboardScreen playerData={playerData} factData={factData} unlockedTiers={unlockedTiers} onBack={() => setScreen("home")} levelData={levelData}/>;
+  const wrapStyle = { opacity: transitioning ? 0 : 1, transform: transitioning ? 'translateY(8px)' : 'translateY(0)', transition: 'opacity 0.2s, transform 0.2s' };
+
+  if (screen === "home") return <div style={wrapStyle}><HomeScreen playerData={playerData} unlockedTiers={unlockedTiers} unlockedCars={unlockedCars} selectedCarId={selectedCarId} selectCar={selectCar} activeCar={activeCar} onPreRace={() => transitionTo("prerace")} onDashboard={() => transitionTo("dashboard")} muted={muted} toggleMute={toggleMute}/></div>;
+  if (screen === "prerace") return <div style={wrapStyle}><PreRaceScreen unlockedTiers={unlockedTiers} unlockedLeagues={unlockedLeagues} selectedLevel={selectedLevel} setSelectedLevel={setSelectedLevel} selectedLeague={selectedLeague} setSelectedLeague={setSelectedLeague} levelData={levelData} activeCar={activeCar} onStart={startRace} onBack={() => transitionTo("home")}/></div>;
+  if (screen === "race") return <RaceScreen q={questions[qIndex]} choices={choices} qIndex={qIndex} feedback={feedback} choiceAnim={choiceAnim} raceProgress={raceProgress} speed={speed} streak={streak} sessionStats={sessionStats} activeCar={activeCar} onAnswer={handleAnswer} champProgress={champProgress} champFinished={champFinished} paused={paused} onPause={handlePause} selectedLeague={selectedLeague}/>;
+  if (screen === "results") return <div style={wrapStyle}><ResultsScreen sessionStats={sessionStats} playerData={playerData} factData={factData} onHome={() => transitionTo("home")} onPreRace={() => transitionTo("prerace")} activeCar={activeCar} raceResult={raceResult} selectedLeague={selectedLeague} levelData={levelData} unlockedLeagues={unlockedLeagues}/></div>;
+  if (screen === "dashboard") return <div style={wrapStyle}><DashboardScreen playerData={playerData} factData={factData} unlockedTiers={unlockedTiers} onBack={() => transitionTo("home")} levelData={levelData}/></div>;
   return null;
 }
 
 // ─── HOME SCREEN ─────────────────────────────────────────────────────────────
 
-function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, selectCar, activeCar, onPreRace, onDashboard, unlockedLevels, levelData, muted, toggleMute }) {
+function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, selectCar, activeCar, onPreRace, onDashboard, muted, toggleMute }) {
   const [revving, setRevving] = useState(false);
   return (
     <div style={S.page}>
@@ -1433,24 +1597,34 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
           <div style={{ color: '#444', fontSize: 12, marginTop: 2 }}>tap to rev {"\uD83D\uDD25"}</div>
         </div>
 
-        {/* Car picker */}
+        {/* Car picker — always show all cars, locked ones dimmed with SVG preview */}
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
           {CARS.map(car => {
             const locked = !unlockedCars.includes(car.id);
             const sel = selectedCarId === car.id;
             return (
               <button key={car.id} onClick={() => { if (!locked) { selectCar(car.id); SFX.init(); SFX.play('tap'); } }}
-                style={{ background: sel ? car.color : '#111', border: `2px solid ${sel ? car.color : locked ? '#1a1a1a' : '#333'}`, borderRadius: 10, padding: '8px 12px', cursor: locked ? 'not-allowed' : 'pointer', opacity: locked ? 0.4 : 1, color: sel ? '#000' : '#999', fontFamily: 'Nunito, sans-serif', fontWeight: 800, fontSize: 13, lineHeight: 1.4, textAlign: 'center', minWidth: 68 }}>
-                {locked ? "\uD83D\uDD12" : ""} {car.name.split(' ')[0]}
-                {locked ? <div style={{ fontSize: 11 }}>{car.unlockCoins}{"\uD83E\uDE99"}</div> : null}
+                style={{ background: sel ? `${car.color}22` : '#0d0d1a', border: `2px solid ${sel ? car.color : locked ? '#1a1a1a' : '#333'}`, borderRadius: 12, padding: '6px 8px 4px', cursor: locked ? 'not-allowed' : 'pointer', color: sel ? car.color : locked ? '#555' : '#999', fontFamily: 'Nunito, sans-serif', fontWeight: 800, fontSize: 11, lineHeight: 1.3, textAlign: 'center', minWidth: 72, position: 'relative', transition: 'all 0.15s' }}>
+                <div style={{ filter: locked ? 'grayscale(0.7) brightness(0.5)' : 'none', transition: 'filter 0.2s' }}>
+                  <CarSVG color={car.color} stripe={car.stripe} size={55} shape={car.shape}/>
+                </div>
+                <div style={{ marginTop: 2 }}>{car.name.split(' ')[0]}</div>
+                {locked && (
+                  <div style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(0,0,0,0.75)', borderRadius: 6, padding: '1px 5px', fontSize: 10, color: '#ffdd00', fontWeight: 900 }}>
+                    {"\uD83D\uDD12"} {car.unlockCoins}{"\uD83E\uDE99"}
+                  </div>
+                )}
+                {sel && (
+                  <div style={{ position: 'absolute', top: 3, left: 3, background: car.color, borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#000', fontWeight: 900 }}>{"\u2713"}</div>
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* Gear status (passive display, not interactive) */}
+        {/* Level status (passive display, not interactive) */}
         <div style={{ marginBottom: 14 }}>
-          <div style={{ color: '#555', fontSize: 11, fontWeight: 700, letterSpacing: 1, textAlign: 'center', marginBottom: 6 }}>UNLOCKED GEARS</div>
+          <div style={{ color: '#555', fontSize: 11, fontWeight: 700, letterSpacing: 1, textAlign: 'center', marginBottom: 6 }}>UNLOCKED LEVELS</div>
           <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
             {TIERS.map(tier => {
               const on = unlockedTiers.includes(tier.id);
@@ -1461,7 +1635,7 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
               );
             })}
           </div>
-          <div style={{ color: '#444', fontSize: 10, textAlign: 'center', marginTop: 4 }}>Choose gear in Race Setup</div>
+          <div style={{ color: '#444', fontSize: 10, textAlign: 'center', marginTop: 4 }}>Choose level in Race Setup</div>
         </div>
 
         <button onClick={() => { SFX.init(); SFX.play('tap'); onPreRace(); }} style={S.raceBtnBig} onMouseOver={e => e.target.style.transform = 'scale(1.02)'} onMouseOut={e => e.target.style.transform = 'scale(1)'}>
@@ -1481,7 +1655,7 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
 
 // ─── PRE-RACE SCREEN ─────────────────────────────────────────────────────────
 
-function PreRaceScreen({ unlockedTiers, unlockedLevels, selectedGear, setSelectedGear, selectedLevel, setSelectedLevel, levelData, activeCar, onStart, onBack }) {
+function PreRaceScreen({ unlockedTiers, unlockedLeagues, selectedLevel, setSelectedLevel, selectedLeague, setSelectedLeague, levelData, activeCar, onStart, onBack }) {
   return (
     <div style={S.page}>
       <div style={S.wrap}>
@@ -1492,13 +1666,13 @@ function PreRaceScreen({ unlockedTiers, unlockedLevels, selectedGear, setSelecte
 
         {/* Gear selection */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>SELECT GEAR</div>
+          <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>SELECT LEVEL</div>
           <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
             {TIERS.map(tier => {
               const on = unlockedTiers.includes(tier.id);
-              const sel = selectedGear === tier.id;
+              const sel = selectedLevel === tier.id;
               return (
-                <button key={tier.id} onClick={() => on && setSelectedGear(tier.id)}
+                <button key={tier.id} onClick={() => on && setSelectedLevel(tier.id)}
                   style={{ background: sel ? tier.color + '22' : '#0d0d0d', border: `2px solid ${sel ? tier.color : on ? tier.color + '44' : '#222'}`, borderRadius: 10, padding: '8px 12px', color: on ? (sel ? tier.color : tier.color + 'aa') : '#444', fontSize: 13, fontWeight: 800, textAlign: 'center', minWidth: 60, cursor: on ? 'pointer' : 'not-allowed', opacity: on ? 1 : 0.4, fontFamily: 'Nunito, sans-serif', transition: 'all 0.15s' }}>
                   {on ? "\u26A1" : "\uD83D\uDD12"} {tier.name}
                   <div style={{ fontSize: 11, marginTop: 1 }}>{on ? tier.label : `${tier.unlockCoins}\uD83E\uDE99`}</div>
@@ -1508,21 +1682,21 @@ function PreRaceScreen({ unlockedTiers, unlockedLevels, selectedGear, setSelecte
           </div>
         </div>
 
-        {/* Level selection */}
+        {/* League selection */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>SELECT LEVEL</div>
+          <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>SELECT LEAGUE</div>
           <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {LEVELS.map((level, i) => {
-              const on = unlockedLevels.includes(level.id);
-              const sel = selectedLevel === level.id;
-              const winsAtThis = levelData.wins[String(level.id)] || 0;
-              const prevLevel = i > 0 ? LEVELS[i - 1] : null;
-              const winsAtPrev = prevLevel ? (levelData.wins[String(prevLevel.id)] || 0) : 0;
-              const winsNeeded = prevLevel ? Math.max(0, level.winsToUnlock - winsAtPrev) : 0;
+            {LEAGUES.map((league, i) => {
+              const on = unlockedLeagues.includes(league.id);
+              const sel = selectedLeague === league.id;
+              const winsAtThis = levelData.wins[String(league.id)] || 0;
+              const prevLeague = i > 0 ? LEAGUES[i - 1] : null;
+              const winsAtPrev = prevLeague ? (levelData.wins[String(prevLeague.id)] || 0) : 0;
+              const winsNeeded = prevLeague ? Math.max(0, league.winsToUnlock - winsAtPrev) : 0;
               return (
-                <button key={level.id} onClick={() => on && setSelectedLevel(level.id)}
-                  style={{ background: sel ? level.color + '22' : '#0d0d0d', border: `2px solid ${sel ? level.color : on ? level.color + '44' : '#222'}`, borderRadius: 10, padding: '8px 12px', color: on ? (sel ? level.color : level.color + 'aa') : '#444', fontSize: 13, fontWeight: 800, textAlign: 'center', minWidth: 60, cursor: on ? 'pointer' : 'not-allowed', opacity: on ? 1 : 0.4, fontFamily: 'Nunito, sans-serif', transition: 'all 0.15s' }}>
-                  {on ? `Lv${level.id}` : "\uD83D\uDD12"} {level.name}
+                <button key={league.id} onClick={() => on && setSelectedLeague(league.id)}
+                  style={{ background: sel ? league.color + '22' : '#0d0d0d', border: `2px solid ${sel ? league.color : on ? league.color + '44' : '#222'}`, borderRadius: 10, padding: '8px 12px', color: on ? (sel ? league.color : league.color + 'aa') : '#444', fontSize: 13, fontWeight: 800, textAlign: 'center', minWidth: 60, cursor: on ? 'pointer' : 'not-allowed', opacity: on ? 1 : 0.4, fontFamily: 'Nunito, sans-serif', transition: 'all 0.15s' }}>
+                  {on ? `Lv${league.id}` : "\uD83D\uDD12"} {league.name}
                   <div style={{ fontSize: 11, marginTop: 1 }}>
                     {on ? `${winsAtThis} win${winsAtThis !== 1 ? 's' : ''}` : `${winsNeeded} more win${winsNeeded !== 1 ? 's' : ''}`}
                   </div>
@@ -1533,19 +1707,19 @@ function PreRaceScreen({ unlockedTiers, unlockedLevels, selectedGear, setSelecte
         </div>
 
         {/* Champ preview */}
-        {(() => { const cc = getChampCar(selectedLevel); return (
+        {(() => { const cc = getChampCar(selectedLeague); return (
         <div style={{ background: 'rgba(13,13,26,0.7)', backdropFilter: 'blur(10px)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', padding: '16px 0 12px', textAlign: 'center', margin: '8px 0 16px' }}>
           <div style={{ color: '#888', fontSize: 12, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>YOUR OPPONENT</div>
           <CarSVG color={cc.color} stripe={cc.stripe} size={100} animating={true} shape={cc.shape}/>
           <div style={{ color: '#ffd700', fontSize: 16, fontWeight: 900, letterSpacing: 1, marginTop: 6 }}>{cc.name.toUpperCase()}</div>
           <div style={{ color: '#666', fontSize: 13, marginTop: 2 }}>
-            {LEVELS.find(l => l.id === selectedLevel)?.name || 'Rookie'} Level
+            {LEAGUES.find(l => l.id === selectedLeague)?.name || 'Rookie'} League
           </div>
         </div>
         ); })()}
 
         {/* vs preview */}
-        {(() => { const cc = getChampCar(selectedLevel); return (
+        {(() => { const cc = getChampCar(selectedLeague); return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, marginBottom: 16 }}>
           <div style={{ textAlign: 'center' }}>
             <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={60} shape={activeCar.shape}/>
@@ -1570,7 +1744,7 @@ function PreRaceScreen({ unlockedTiers, unlockedLevels, selectedGear, setSelecte
 
 // ─── RACE SCREEN ─────────────────────────────────────────────────────────────
 
-function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, speed, streak, sessionStats, activeCar, onAnswer, champProgress, champFinished, paused, onPause, selectedLevel }) {
+function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, speed, streak, sessionStats, activeCar, onAnswer, champProgress, champFinished, paused, onPause, selectedLeague }) {
   if (!q) return null;
   const speedLabel = speed <= 2 ? 'SLOW' : speed <= 4 ? 'CRUISING' : speed <= 6 ? 'FAST!' : speed <= 8 ? '\u26A1 TURBO!' : '\uD83D\uDD25 MAX SPEED!';
   const speedColor = speed <= 2 ? '#ff3d00' : speed <= 4 ? '#ffdd00' : speed <= 6 ? '#00e676' : speed <= 8 ? '#00b0ff' : '#e040fb';
@@ -1614,7 +1788,7 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
         )}
 
         {/* Champ crossed finish banner */}
-        {champFinished && (() => { const cc = getChampCar(selectedLevel); return (
+        {champFinished && (() => { const cc = getChampCar(selectedLeague); return (
           <div style={{ textAlign: 'center', marginBottom: 4 }}>
             <span style={{ background: `linear-gradient(90deg, ${cc.color}, ${cc.stripe})`, color: '#fff', borderRadius: 20, padding: '3px 16px', fontSize: 13, fontWeight: 900, letterSpacing: 1, textShadow: '0 1px 3px #000' }}>
               {"\uD83C\uDFC1"} {cc.name} crossed the finish!
@@ -1623,7 +1797,7 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
         ); })()}
 
         {/* Track */}
-        <RaceTrack progress={raceProgress} speed={feedback === 'correct' ? 10 : speed} carColor={activeCar.color} carStripe={activeCar.stripe} carShape={activeCar.shape} champProgress={champProgress} champCar={getChampCar(selectedLevel)} paused={paused}/>
+        <RaceTrack progress={raceProgress} speed={feedback === 'correct' ? 10 : speed} carColor={activeCar.color} carStripe={activeCar.stripe} carShape={activeCar.shape} champProgress={champProgress} champCar={getChampCar(selectedLeague)} paused={paused} streak={streak}/>
 
         {/* Question card */}
         <div style={{ background: feedback === 'correct' ? '#00e67610' : feedback === 'wrong' ? '#ff3d0010' : 'rgba(13,13,26,0.7)', backdropFilter: 'blur(10px)', border: `1.5px solid ${feedback === 'correct' ? '#00e676' : feedback === 'wrong' ? '#ff3d00' : 'rgba(255,255,255,0.06)'}`, borderRadius: 16, padding: '16px 20px', textAlign: 'center', margin: '10px 0', transition: 'all 0.2s' }}>
@@ -1654,7 +1828,9 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
             }
             return (
               <button key={idx} onClick={() => onAnswer(choice, idx)} disabled={!!feedback || paused}
-                style={{ background: bg === '#111' ? 'rgba(255,255,255,0.04)' : bg, border: `1.5px solid ${border === '#222' ? 'rgba(255,255,255,0.08)' : border}`, borderRadius: 16, padding: '22px 10px', cursor: feedback || paused ? 'default' : 'pointer', color, fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 36, letterSpacing: 1, transition: 'all 0.15s', transform: `scale(${scale})`, boxShadow: feedback && choiceAnim === idx && isCorrectAns ? '0 0 20px #00e67644' : 'none', minHeight: 70 }}>
+                onMouseOver={e => { if (!feedback && !paused) { e.currentTarget.style.transform = 'scale(1.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; } }}
+                onMouseOut={e => { if (!feedback && !paused) { e.currentTarget.style.transform = `scale(${scale})`; e.currentTarget.style.borderColor = border === '#222' ? 'rgba(255,255,255,0.08)' : border; e.currentTarget.style.background = bg === '#111' ? 'rgba(255,255,255,0.04)' : bg; } }}
+                style={{ background: bg === '#111' ? 'rgba(255,255,255,0.04)' : bg, border: `1.5px solid ${border === '#222' ? 'rgba(255,255,255,0.08)' : border}`, borderRadius: 16, padding: '22px 10px', cursor: feedback || paused ? 'default' : 'pointer', color, fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 36, letterSpacing: 1, transition: 'all 0.15s', transform: `scale(${scale})`, boxShadow: feedback && choiceAnim === idx ? (isCorrectAns ? '0 0 24px #00e67666, inset 0 0 12px #00e67622' : '0 0 24px #ff3d0044, inset 0 0 12px #ff3d0022') : 'none', minHeight: 70 }}>
                 {choice}
               </button>
             );
@@ -1673,7 +1849,7 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
       {paused && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 52, color: '#ffdd00', letterSpacing: 1, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>PAUSED</div>
-          <div style={{ color: '#888', fontSize: 14, margin: '8px 0 24px', fontWeight: 700 }}>{getChampCar(selectedLevel).name} is still racing...</div>
+          <div style={{ color: '#888', fontSize: 14, margin: '8px 0 24px', fontWeight: 700 }}>{getChampCar(selectedLeague).name} is still racing...</div>
           <button onClick={onPause} style={{ ...S.raceBtnBig, maxWidth: 300 }}>{"\u25B6\uFE0F"} RESUME</button>
         </div>
       )}
@@ -1685,19 +1861,19 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
 
 // ─── RESULTS SCREEN ──────────────────────────────────────────────────────────
 
-function ResultsScreen({ sessionStats, playerData, factData, onHome, onPreRace, activeCar, raceResult, selectedLevel, levelData, unlockedLevels }) {
+function ResultsScreen({ sessionStats, playerData, factData, onHome, onPreRace, activeCar, raceResult, selectedLeague, levelData, unlockedLeagues }) {
   const accuracy = Math.round((sessionStats.correct / QUESTIONS_PER_RACE) * 100);
   const [show, setShow] = useState(false);
   useEffect(() => { setTimeout(() => setShow(true), 100); }, []);
 
   const grade = accuracy >= 90 ? ['\uD83C\uDFC6', 'CHAMPION!', '#ffdd00'] : accuracy >= 70 ? ['\uD83E\uDD48', 'GREAT RACE!', '#00e676'] : accuracy >= 50 ? ['\uD83E\uDD49', 'GOOD JOB!', '#ff9100'] : ['\uD83D\uDCAA', 'KEEP RACING!', '#ff3d00'];
 
-  const levelName = LEVELS.find(l => l.id === selectedLevel)?.name || 'Rookie';
+  const leagueName = LEAGUES.find(l => l.id === selectedLeague)?.name || 'Rookie';
 
-  // Check if a new level was just unlocked
-  const prevUnlockedCount = getUnlockedLevels({ ...levelData, wins: { ...levelData.wins, [String(selectedLevel)]: Math.max(0, (levelData.wins[String(selectedLevel)] || 0) - (raceResult === 'win' ? 1 : 0)) } }).length;
-  const newLevelUnlocked = raceResult === 'win' && unlockedLevels.length > prevUnlockedCount;
-  const newlyUnlockedLevel = newLevelUnlocked ? LEVELS.find(l => l.id === unlockedLevels[unlockedLevels.length - 1]) : null;
+  // Check if a new league was just unlocked
+  const prevUnlockedCount = getUnlockedLeagues({ ...levelData, wins: { ...levelData.wins, [String(selectedLeague)]: Math.max(0, (levelData.wins[String(selectedLeague)] || 0) - (raceResult === 'win' ? 1 : 0)) } }).length;
+  const newLeagueUnlocked = raceResult === 'win' && unlockedLeagues.length > prevUnlockedCount;
+  const newlyUnlockedLeague = newLeagueUnlocked ? LEAGUES.find(l => l.id === unlockedLeagues[unlockedLeagues.length - 1]) : null;
 
   return (
     <div style={S.page}>
@@ -1712,7 +1888,7 @@ function ResultsScreen({ sessionStats, playerData, factData, onHome, onPreRace, 
           ) : (
             <>
               <div style={{ fontSize: 48, animation: 'bounce 0.5s ease' }}>{"\uD83C\uDFCE\uFE0F"}</div>
-              <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 36, color: getChampCar(selectedLevel).stripe, letterSpacing: 1 }}>{getChampCar(selectedLevel).name.toUpperCase()} WINS!</div>
+              <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 36, color: getChampCar(selectedLeague).stripe, letterSpacing: 1 }}>{getChampCar(selectedLeague).name.toUpperCase()} WINS!</div>
               <div style={{ color: '#888', fontSize: 14, marginTop: 2 }}>Keep practicing — you'll get there!</div>
             </>
           )}
@@ -1725,10 +1901,10 @@ function ResultsScreen({ sessionStats, playerData, factData, onHome, onPreRace, 
         </div>
 
         {/* New level unlock banner */}
-        {newLevelUnlocked && newlyUnlockedLevel && (
+        {newLeagueUnlocked && newlyUnlockedLeague && (
           <div style={{ textAlign: 'center', margin: '8px 0', opacity: show ? 1 : 0, transition: 'all 0.4s 0.1s' }}>
-            <span style={{ background: `linear-gradient(90deg, ${newlyUnlockedLevel.color}44, ${newlyUnlockedLevel.color}22)`, border: `2px solid ${newlyUnlockedLevel.color}`, color: newlyUnlockedLevel.color, borderRadius: 12, padding: '8px 20px', fontSize: 16, fontWeight: 900, letterSpacing: 1 }}>
-              {"\uD83D\uDD13"} NEW LEVEL UNLOCKED: {newlyUnlockedLevel.name}!
+            <span style={{ background: `linear-gradient(90deg, ${newlyUnlockedLeague.color}44, ${newlyUnlockedLeague.color}22)`, border: `2px solid ${newlyUnlockedLeague.color}`, color: newlyUnlockedLeague.color, borderRadius: 12, padding: '8px 20px', fontSize: 16, fontWeight: 900, letterSpacing: 1 }}>
+              {"\uD83D\uDD13"} NEW LEAGUE UNLOCKED: {newlyUnlockedLeague.name}!
             </span>
           </div>
         )}
@@ -1739,8 +1915,8 @@ function ResultsScreen({ sessionStats, playerData, factData, onHome, onPreRace, 
 
         <div style={{ ...S.card, opacity: show ? 1 : 0, transition: 'all 0.4s 0.2s' }}>
           {[
-            ['\uD83C\uDFCE\uFE0F Race', `${raceResult === 'win' ? 'WIN' : 'LOSS'} vs ${getChampCar(selectedLevel).name}`, raceResult === 'win' ? '#ffd700' : getChampCar(selectedLevel).stripe],
-            ['\uD83C\uDFC1 Level', `${levelName} (Lv${selectedLevel})`, LEVELS.find(l => l.id === selectedLevel)?.color || '#888'],
+            ['\uD83C\uDFCE\uFE0F Race', `${raceResult === 'win' ? 'WIN' : 'LOSS'} vs ${getChampCar(selectedLeague).name}`, raceResult === 'win' ? '#ffd700' : getChampCar(selectedLeague).stripe],
+            ['\uD83C\uDFC1 League', `${leagueName} (Lv${selectedLeague})`, LEAGUES.find(l => l.id === selectedLeague)?.color || '#888'],
             ['\u2705 Correct', `${sessionStats.correct} / ${QUESTIONS_PER_RACE}`, '#00e676'],
             ['\uD83C\uDFAF Accuracy', `${accuracy}%`, grade[2]],
             ['\uD83E\uDE99 Coins Earned', `+${sessionStats.coins}${sessionStats.bonus ? ` (incl. +${sessionStats.bonus} bonus!)` : ''}`, '#ffdd00'],
@@ -1778,7 +1954,7 @@ function DashboardScreen({ playerData, factData, unlockedTiers, onBack, levelDat
   const [tab, setTab] = useState('tables');
   const unlockedTables = TIERS.filter(t => unlockedTiers.includes(t.id)).flatMap(t => t.tables);
   const tables = [...new Set([1, ...unlockedTables])].sort((a, b) => a - b);
-  const dashUnlockedLevels = getUnlockedLevels(levelData);
+  const dashUnlockedLevels = getUnlockedLeagues(levelData);
 
   const weakFacts = [];
   for (const t of tables) {
@@ -1824,14 +2000,14 @@ function DashboardScreen({ playerData, factData, unlockedTiers, onBack, levelDat
         {/* Level progress */}
         <div style={{ ...S.card, marginBottom: 12 }}>
           <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>LEVEL PROGRESS</div>
-          {LEVELS.map((level, i) => {
+          {LEAGUES.map((level, i) => {
             const on = dashUnlockedLevels.includes(level.id);
             const wins = levelData.wins[String(level.id)] || 0;
-            const nextLevel = LEVELS[i + 1];
+            const nextLevel = LEAGUES[i + 1];
             const winsNeeded = nextLevel ? nextLevel.winsToUnlock : null;
             const isMaxed = winsNeeded !== null && wins >= winsNeeded;
             return (
-              <div key={level.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < LEVELS.length - 1 ? '1px solid #111' : 'none' }}>
+              <div key={level.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < LEAGUES.length - 1 ? '1px solid #111' : 'none' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ color: on ? level.color : '#444', fontWeight: 900, fontSize: 15 }}>
                     {on ? `Lv${level.id}` : "\uD83D\uDD12"} {level.name}
@@ -1925,12 +2101,12 @@ function DashboardScreen({ playerData, factData, unlockedTiers, onBack, levelDat
 // ─── SHARED STYLES ───────────────────────────────────────────────────────────
 
 const S = {
-  page: { minHeight: '100vh', background: 'linear-gradient(160deg, #080812 0%, #0a0a1e 60%, #080812 100%)', display: 'flex', justifyContent: 'center', fontFamily: "'Nunito', sans-serif", color: '#fff' },
+  page: { minHeight: '100vh', background: 'linear-gradient(160deg, #080812 0%, #0a0a1e 60%, #080812 100%)', backgroundSize: '200% 200%', animation: 'bgShift 20s ease-in-out infinite', display: 'flex', justifyContent: 'center', fontFamily: "'Nunito', sans-serif", color: '#fff' },
   wrap: { width: '100%', maxWidth: 430, padding: '16px 14px 36px' },
   bigTitle: { fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 48, letterSpacing: 1, color: '#ffdd00', textShadow: '0 2px 8px rgba(0,0,0,0.5)', lineHeight: 1 },
   coinChip: { display: 'inline-block', background: 'rgba(255,221,0,0.08)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,221,0,0.2)', color: '#ffdd00', borderRadius: 20, padding: '5px 18px', fontSize: 16, fontWeight: 900, marginTop: 8 },
   raceBtnBig: { width: '100%', padding: '18px 0', borderRadius: 14, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #e63600, #ff7a1a)', color: '#fff', fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 22, letterSpacing: 1.5, boxShadow: '0 4px 20px rgba(230,54,0,0.3)', transition: 'transform 0.15s, box-shadow 0.15s' },
-  card: { background: 'rgba(13,13,26,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px 18px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10 },
+  card: { background: 'rgba(13,13,26,0.85)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '14px 18px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.3)' },
   row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 8 },
   pill: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '6px 16px', fontSize: 14, color: '#888', fontWeight: 800 },
 };
@@ -1941,6 +2117,13 @@ function GlobalStyles() {
       button:active { transform: scale(0.97) !important; }
       @keyframes bounce { 0%{transform:scale(0.5)} 60%{transform:scale(1.2)} 100%{transform:scale(1)} }
       @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+      @keyframes wheelSpin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+      @keyframes carBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-1.5px)} }
+      @keyframes smoke { 0%{opacity:0.4;transform:scale(0.5) translateX(0)} 100%{opacity:0;transform:scale(2) translateX(-12px)} }
+      @keyframes fireTrail { 0%{opacity:0.8;transform:scale(1) translateX(0)} 50%{opacity:0.6;transform:scale(1.3) translateX(-4px)} 100%{opacity:0;transform:scale(0.5) translateX(-10px)} }
+      @keyframes speedLine { 0%{transform:translateX(0);opacity:0.3} 100%{transform:translateX(-100px);opacity:0} }
+      @keyframes bgShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+      /* wheel spin applied via inline style on SVG <g> elements */
     `}</style>
   );
 }

@@ -23,6 +23,22 @@
       }
       /* Prevent pull-to-refresh on mobile */
       body { overscroll-behavior-y: contain; }
+      /* Ambient glow */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background:
+          radial-gradient(ellipse 600px 400px at 20% 80%, rgba(230,54,0,0.06) 0%, transparent 70%),
+          radial-gradient(ellipse 500px 350px at 80% 20%, rgba(100,0,255,0.05) 0%, transparent 70%);
+        animation: ambientGlow 12s ease-in-out infinite alternate;
+        pointer-events: none;
+      }
+      @keyframes ambientGlow {
+        0% { opacity: 0.6; }
+        100% { opacity: 1; }
+      }
       /* Safe area padding for notched phones */
       #root {
         padding-top: env(safe-area-inset-top);

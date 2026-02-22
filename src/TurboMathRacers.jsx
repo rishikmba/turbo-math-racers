@@ -112,6 +112,48 @@ const SFX = {
     src.start();
   },
 
+  _kick(time, dest) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, time);
+    osc.frequency.exponentialRampToValueAtTime(40, time + 0.08);
+    g.gain.setValueAtTime(0.7, time);
+    g.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+    osc.connect(g);
+    g.connect(dest);
+    osc.start(time);
+    osc.stop(time + 0.15);
+  },
+
+  _snare(time, dest) {
+    if (!this.ctx) return;
+    const bufLen = Math.floor(this.ctx.sampleRate * 0.08);
+    const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1);
+    const src = this.ctx.createBufferSource();
+    const g = this.ctx.createGain();
+    src.buffer = buf;
+    g.gain.setValueAtTime(0.4, time);
+    g.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
+    src.connect(g);
+    g.connect(dest);
+    src.start(time);
+    // Tonal body
+    const osc = this.ctx.createOscillator();
+    const g2 = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = 180;
+    g2.gain.setValueAtTime(0.25, time);
+    g2.gain.exponentialRampToValueAtTime(0.01, time + 0.06);
+    osc.connect(g2);
+    g2.connect(dest);
+    osc.start(time);
+    osc.stop(time + 0.1);
+  },
+
   play(name) {
     if (!this.ctx || this.muted) return;
     try { this.ctx.resume(); } catch {}
@@ -187,29 +229,67 @@ const SFX = {
     masterGain.gain.value = 0.06;
     masterGain.connect(this.ctx.destination);
 
-    // Bass line: simple looping pattern
-    const bassNotes = [65, 82, 73, 87]; // C2, E2, D2, F2 area
     let running = true;
-    const oscs = [];
+    const LOOP = 8; // 8-second loop (4 bars at 120 BPM)
 
-    const playBassLoop = () => {
+    // Bass: C2, C2, F2, F2, G2, G2, Ab2, G2
+    const bassNotes = [65.4, 65.4, 87.3, 87.3, 98, 98, 103.8, 98];
+    // Chord pads: Cm, Cm, Fm, Fm, Gm, Gm, Ab, Ab (root + third + fifth)
+    const chords = [
+      [131, 156, 196], [131, 156, 196], // Cm
+      [175, 208, 262], [175, 208, 262], // Fm
+      [196, 233, 294], [196, 233, 294], // Gm
+      [208, 262, 311], [208, 262, 311], // Ab
+    ];
+
+    const playLoop = () => {
       if (!running || !this.ctx) return;
       const now = this.ctx.currentTime;
+
+      // ── Bass line (triangle wave) ──
       bassNotes.forEach((freq, i) => {
         const osc = this.ctx.createOscillator();
         const g = this.ctx.createGain();
         osc.type = 'triangle';
         osc.frequency.value = freq;
-        g.gain.setValueAtTime(0.5, now + i * 0.5);
-        g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.5 + 0.45);
+        g.gain.setValueAtTime(0.5, now + i);
+        g.gain.exponentialRampToValueAtTime(0.01, now + i + 0.9);
         osc.connect(g);
         g.connect(masterGain);
-        osc.start(now + i * 0.5);
-        osc.stop(now + i * 0.5 + 0.5);
-        oscs.push(osc);
+        osc.start(now + i);
+        osc.stop(now + i + 1);
       });
-      // Light hi-hat rhythm
-      for (let i = 0; i < 8; i++) {
+
+      // ── Chord pad (sine, very low volume) ──
+      chords.forEach((chord, i) => {
+        chord.forEach(freq => {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          g.gain.setValueAtTime(0.08, now + i);
+          g.gain.setValueAtTime(0.08, now + i + 0.7);
+          g.gain.exponentialRampToValueAtTime(0.005, now + i + 0.95);
+          osc.connect(g);
+          g.connect(masterGain);
+          osc.start(now + i);
+          osc.stop(now + i + 1);
+        });
+      });
+
+      // ── Kick drum (beats 1 and 3 of each bar) ──
+      [0, 1, 4, 5].forEach(beat => {
+        this._kick(now + beat, masterGain);
+      });
+
+      // ── Snare (beats 2 and 4 of each bar) ──
+      [2, 3, 6, 7].forEach(beat => {
+        this._snare(now + beat + 0.5, masterGain);
+      });
+
+      // ── Hi-hat pattern (16th notes with accents) ──
+      for (let i = 0; i < 16; i++) {
+        const t = now + i * 0.5;
         const bufLen = Math.floor(this.ctx.sampleRate * 0.03);
         const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
         const d = buf.getChannelData(0);
@@ -217,19 +297,20 @@ const SFX = {
         const src = this.ctx.createBufferSource();
         const g = this.ctx.createGain();
         src.buffer = buf;
-        g.gain.setValueAtTime(i % 2 === 0 ? 0.3 : 0.15, now + i * 0.25);
-        g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.25 + 0.05);
+        const accent = i % 2 === 0 ? 0.25 : 0.12;
+        g.gain.setValueAtTime(accent, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
         src.connect(g);
         g.connect(masterGain);
-        src.start(now + i * 0.25);
+        src.start(t);
       }
     };
 
-    playBassLoop();
+    playLoop();
     const interval = setInterval(() => {
       if (!running) { clearInterval(interval); return; }
-      playBassLoop();
-    }, 2000);
+      playLoop();
+    }, LOOP * 1000);
 
     this.musicNodes = { masterGain, interval, stop() { running = false; clearInterval(interval); } };
   },
@@ -335,162 +416,509 @@ function getUnlockedLevels(levelData) {
 // ─── CAR SHAPES ──────────────────────────────────────────────────────────────
 
 function stdWheels() {
-  return <>
-    <circle cx="32" cy="57" r="9" fill="#111"/><circle cx="32" cy="57" r="6" fill="#333"/><circle cx="32" cy="57" r="2.5" fill="#666"/>
-    <circle cx="88" cy="57" r="9" fill="#111"/><circle cx="88" cy="57" r="6" fill="#333"/><circle cx="88" cy="57" r="2.5" fill="#666"/>
+  const wheel = (cx) => <>
+    <circle cx={cx} cy="57" r="9.5" fill="#0a0a0a"/>
+    <circle cx={cx} cy="57" r="9" fill="#1a1a1a"/>
+    <circle cx={cx} cy="57" r="7" fill="#444"/>
+    <circle cx={cx} cy="57" r="6.5" fill="#3a3a3a"/>
+    <circle cx={cx} cy="57" r="5" fill="#661111" opacity="0.3"/>
+    {[0, 72, 144, 216, 288].map((a, i) => {
+      const rad = a * Math.PI / 180;
+      return <line key={i} x1={cx} y1={57} x2={cx + Math.cos(rad) * 6} y2={57 + Math.sin(rad) * 6} stroke="#666" strokeWidth="1.8" strokeLinecap="round"/>;
+    })}
+    <circle cx={cx} cy="57" r="2" fill="#888"/>
+    <circle cx={cx} cy="57" r="1" fill="#aaa"/>
   </>;
+  return <>{wheel(32)}{wheel(88)}</>;
 }
 
 const CAR_SHAPES = {
   // ── PLAYER CARS ──────────────────────────────────────────────
 
-  // Car 1: Toyota GR86 — compact coupe, long hood, sloped roofline, small rear lip
+  // Car 1: Toyota GR86 — compact coupe, long hood, sloped roofline
   gr86: (color, stripe) => <>
+    {/* Ground shadow */}
+    <ellipse cx="60" cy="63" rx="48" ry="3" fill="#000" opacity="0.3"/>
+    {/* Main body */}
     <path d="M10 46 Q12 36 22 30 L40 24 L48 16 Q56 13 66 16 L72 22 L96 28 Q110 34 112 46 L112 52 Q112 58 106 58 L16 58 Q10 58 10 52 Z" fill={color}/>
-    <path d="M48 22 L52 14 Q58 11 66 14 L70 22 Z" fill={stripe}/>
-    <path d="M50 22 L54 16 Q58 13 64 16 L68 22 Z" fill="#aaddff" opacity="0.65"/>
-    <path d="M72 22 L74 20 L78 22 Z" fill={stripe} opacity="0.5"/>
-    <path d="M16 40 L42 34 L42 40 Z" fill={stripe} opacity="0.15"/>
+    {/* Lower body panel */}
+    <path d="M14 48 L108 48 L112 52 Q112 58 106 58 L16 58 Q10 58 10 52 L14 48 Z" fill="#000" opacity="0.15"/>
+    {/* Hood crease */}
+    <line x1="96" y1="30" x2="72" y2="22" stroke="#000" strokeWidth="0.5" opacity="0.3"/>
+    {/* Door panel line */}
+    <line x1="52" y1="22" x2="50" y2="46" stroke="#000" strokeWidth="0.6" opacity="0.25"/>
+    {/* Rear quarter panel line */}
+    <line x1="38" y1="26" x2="36" y2="46" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
+    {/* Fender arch - front */}
+    <path d="M94 46 Q94 38 100 34" fill="none" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
+    {/* Fender arch - rear */}
+    <path d="M24 46 Q24 38 18 34" fill="none" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
+    {/* Window frame */}
+    <path d="M48 22 L52 14 Q58 11 66 14 L70 22 Z" fill="#111"/>
+    {/* Windshield */}
+    <path d="M62 22 L66 15 Q62 13 58 14.5 L56 22 Z" fill="#88bbee" opacity="0.55"/>
+    {/* Rear window */}
+    <path d="M50 22 L52 16 Q54 14 57 15 L55 22 Z" fill="#88bbee" opacity="0.4"/>
+    {/* Side mirror */}
+    <rect x="70" y="21" width="3" height="2" rx="0.8" fill="#222"/>
+    {/* Front grille */}
+    <path d="M104 36 L112 42 L112 46 L104 44 Z" fill="#111"/>
+    <line x1="106" y1="38" x2="110" y2="43" stroke="#333" strokeWidth="0.5"/>
+    <line x1="108" y1="37" x2="111" y2="42" stroke="#333" strokeWidth="0.5"/>
+    {/* Headlight housing */}
+    <path d="M110 36 L112 38 L112 42 L110 41 Z" fill="#ddeeff" opacity="0.9"/>
+    <path d="M110.5 37" r="1" fill="#fff" opacity="0.5"/>
+    {/* Taillight */}
+    <path d="M7 44 L12 42 L12 48 L7 48 Z" fill="#cc0000" opacity="0.85"/>
+    <line x1="8" y1="44" x2="8" y2="47" stroke="#ff4444" strokeWidth="0.8" opacity="0.6"/>
+    {/* Rear lip spoiler */}
+    <rect x="7" y="42" width="8" height="1.5" rx="0.5" fill="#222"/>
+    {/* Exhaust tips */}
+    <circle cx="9" cy="54" r="1.8" fill="#222"/><circle cx="9" cy="54" r="1.2" fill="#333"/>
+    <circle cx="13" cy="54" r="1.8" fill="#222"/><circle cx="13" cy="54" r="1.2" fill="#333"/>
+    {/* Side stripe accent */}
+    <path d="M20 40 L100 34 L100 36 L20 42 Z" fill={stripe} opacity="0.12"/>
     {stdWheels()}
-    <ellipse cx="110" cy="42" rx="3.5" ry="2" fill="#ffff99" opacity="0.9"/>
-    <rect x="7" y="46" width="6" height="2.5" rx="1" fill="#ff3333" opacity="0.7"/>
   </>,
 
-  // Car 2: Porsche 911 — iconic rear hump, flowing fastback, round headlights, sloped nose
+  // Car 2: Porsche 911 — iconic rear hump, flowing fastback, round headlights
   porsche: (color, stripe) => <>
+    <ellipse cx="60" cy="63" rx="48" ry="3" fill="#000" opacity="0.3"/>
+    {/* Main body */}
     <path d="M8 46 Q10 38 18 34 L30 30 L48 20 Q56 16 64 18 L72 22 Q80 24 86 22 Q96 18 100 22 L106 30 Q112 36 112 46 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={color}/>
-    <path d="M48 20 L52 13 Q58 10 66 14 L70 22 Z" fill={stripe}/>
-    <path d="M50 20 L54 15 Q58 12 64 15 L68 22 Z" fill="#aaddff" opacity="0.65"/>
-    <path d="M86 22 Q92 18 100 22 L98 26 Q92 22 86 26 Z" fill={color} stroke={stripe} strokeWidth="0.8" opacity="0.4"/>
+    {/* Lower body */}
+    <path d="M12 48 L106 48 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 L12 48 Z" fill="#000" opacity="0.12"/>
+    {/* Rear engine hump highlight */}
+    <path d="M82 22 Q90 18 98 22 Q102 28 102 34 L98 30 Q94 24 84 24 Z" fill="#fff" opacity="0.06"/>
+    {/* Rear engine louvers */}
+    <line x1="86" y1="22" x2="88" y2="28" stroke="#000" strokeWidth="0.5" opacity="0.3"/>
+    <line x1="90" y1="20" x2="91" y2="27" stroke="#000" strokeWidth="0.5" opacity="0.3"/>
+    <line x1="94" y1="20" x2="94" y2="27" stroke="#000" strokeWidth="0.5" opacity="0.3"/>
+    {/* Door panel */}
+    <line x1="56" y1="20" x2="54" y2="46" stroke="#000" strokeWidth="0.6" opacity="0.2"/>
+    {/* Side vent */}
+    <path d="M56 32 L62 30 L62 34 Z" fill="#111" opacity="0.4"/>
+    {/* Fender arches */}
+    <path d="M96 46 Q96 38 102 32" fill="none" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
+    <path d="M22 46 Q22 38 16 36" fill="none" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
+    {/* Window frame */}
+    <path d="M48 20 L52 13 Q58 10 66 14 L70 22 Z" fill="#111"/>
+    {/* Windshield */}
+    <path d="M62 22 L66 15 Q62 12 58 13 L56 22 Z" fill="#88bbee" opacity="0.5"/>
+    {/* Quarter window */}
+    <path d="M50 20 L53 15 Q55 13.5 57 14 L55 22 Z" fill="#88bbee" opacity="0.35"/>
+    {/* Side mirror */}
+    <rect x="70" y="20" width="3" height="2.5" rx="1" fill="#222"/>
+    {/* Round headlight - housing */}
+    <circle cx="110" cy="38" r="4" fill="#222"/>
+    <circle cx="110" cy="38" r="3.2" fill="#ddeeff" opacity="0.9"/>
+    <circle cx="110" cy="38" r="2" fill="#fff" opacity="0.6"/>
+    <circle cx="110" cy="38" r="0.8" fill="#ffff99"/>
+    {/* Lower fog light */}
+    <ellipse cx="110" cy="44" rx="2.5" ry="1.5" fill="#ffff99" opacity="0.5"/>
+    {/* Rear light bar */}
+    <path d="M5 42 L12 40 L12 48 L5 48 Z" fill="#cc0000" opacity="0.85"/>
+    <line x1="6" y1="43" x2="6" y2="47" stroke="#ff3333" strokeWidth="1" opacity="0.5"/>
+    <line x1="8" y1="42" x2="8" y2="47" stroke="#ff3333" strokeWidth="1" opacity="0.5"/>
+    <line x1="10" y1="41" x2="10" y2="47" stroke="#ff3333" strokeWidth="1" opacity="0.5"/>
+    {/* Exhaust */}
+    <circle cx="8" cy="54" r="2" fill="#222"/><circle cx="8" cy="54" r="1.2" fill="#444"/>
+    {/* Side stripe */}
+    <path d="M18 38 L102 30 L102 32 L18 40 Z" fill={stripe} opacity="0.12"/>
     {stdWheels()}
-    <circle cx="110" cy="38" r="3" fill="#ffff99" opacity="0.9"/>
-    <circle cx="110" cy="44" r="2.5" fill="#ffff99" opacity="0.6"/>
-    <rect x="5" y="46" width="6" height="2.5" rx="1" fill="#ff3333" opacity="0.7"/>
   </>,
 
-  // Car 3: Lamborghini Aventador — ultra-angular wedge, straight lines, side intakes
+  // Car 3: Lamborghini Aventador — ultra-angular wedge, sharp creases
   aventador: (color, stripe) => <>
+    <ellipse cx="60" cy="63" rx="48" ry="3" fill="#000" opacity="0.3"/>
+    {/* Main body - angular wedge */}
     <path d="M6 46 L10 36 L20 30 L44 22 L52 14 L68 14 L74 20 L96 24 L110 32 L114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
-    <path d="M52 22 L56 14 L66 14 L70 22 Z" fill={stripe}/>
-    <path d="M54 22 L58 16 L64 16 L68 22 Z" fill="#aaddff" opacity="0.6"/>
-    <path d="M40 34 L52 28 L52 38 Z" fill="#111" opacity="0.5"/>
-    <path d="M42 35 L50 30 L50 37 Z" fill={stripe} opacity="0.2"/>
-    <path d="M74 20 L78 18 L80 22 Z" fill={stripe} opacity="0.4"/>
+    {/* Lower body */}
+    <path d="M10 48 L110 48 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 L10 48 Z" fill="#000" opacity="0.15"/>
+    {/* Sharp body crease line */}
+    <line x1="20" y1="36" x2="108" y2="32" stroke="#fff" strokeWidth="0.4" opacity="0.15"/>
+    {/* Door cut line */}
+    <path d="M58 14 L56 46" fill="none" stroke="#000" strokeWidth="0.6" opacity="0.25"/>
+    {/* Angular side scoop */}
+    <path d="M38 34 L52 26 L52 38 Z" fill="#0a0a0a" opacity="0.6"/>
+    <path d="M40 34 L50 28 L50 36 Z" fill="#111"/>
+    {/* Scoop mesh lines */}
+    <line x1="42" y1="33" x2="48" y2="30" stroke="#222" strokeWidth="0.5"/>
+    <line x1="43" y1="35" x2="49" y2="32" stroke="#222" strokeWidth="0.5"/>
+    {/* Second intake */}
+    <path d="M74 22 L80 18 L82 24 Z" fill="#111" opacity="0.5"/>
+    {/* Window frame */}
+    <path d="M52 22 L56 14 L66 14 L70 22 Z" fill="#111"/>
+    {/* Windshield */}
+    <path d="M62 22 L65 14.5 L60 14 L58 22 Z" fill="#88bbee" opacity="0.5"/>
+    {/* Rear window */}
+    <path d="M54 22 L57 15 L59 15 L57 22 Z" fill="#88bbee" opacity="0.3"/>
+    {/* Y-shaped headlight */}
+    <path d="M108 34 L114 36 L114 42 L108 42 Z" fill="#222"/>
+    <path d="M109 36 L113 37 L111 39 L109 38 Z" fill="#ddeeff" opacity="0.9"/>
+    <path d="M109 39 L111 39 L113 41 L109 41 Z" fill="#ffff99" opacity="0.7"/>
+    {/* Taillight */}
+    <path d="M6 42 L12 40 L12 48 L6 48 Z" fill="#cc0000" opacity="0.85"/>
+    <path d="M7 43 L7 47" fill="none" stroke="#ff4444" strokeWidth="1" opacity="0.5"/>
+    <path d="M9 42 L9 47" fill="none" stroke="#ff4444" strokeWidth="1" opacity="0.5"/>
+    {/* Rear diffuser fins */}
+    <rect x="6" y="50" width="2" height="6" rx="0.5" fill="#222"/>
+    <rect x="10" y="50" width="2" height="6" rx="0.5" fill="#222"/>
+    {/* Hexagonal exhaust */}
+    <path d="M8 54 L10 53 L12 54 L12 56 L10 57 L8 56 Z" fill="#222" stroke="#444" strokeWidth="0.5"/>
+    {/* Side stripe */}
+    <path d="M20 38 L104 30 L104 32 L20 40 Z" fill={stripe} opacity="0.15"/>
+    {/* Fender arches */}
+    <path d="M96 46 Q96 38 102 32" fill="none" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
+    <path d="M22 46 Q22 40 16 36" fill="none" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
     {stdWheels()}
-    <path d="M108 36 L114 38 L114 42 L108 42 Z" fill="#ffff99" opacity="0.85"/>
-    <path d="M6 44 L12 42 L12 48 L6 48 Z" fill="#ff3333" opacity="0.75"/>
   </>,
 
-  // Car 4: Bugatti Chiron — widest body, signature C-line, massive rounded rear, horseshoe grille
+  // Car 4: Bugatti Chiron — widest body, C-line, massive rounded rear
   chiron: (color, stripe) => <>
+    <ellipse cx="60" cy="63" rx="50" ry="3.5" fill="#000" opacity="0.3"/>
+    {/* Main body - wide & muscular */}
     <path d="M6 46 Q8 34 16 28 L36 22 L48 16 Q58 12 70 16 L84 20 Q96 22 104 28 Q114 34 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
-    <path d="M48 16 L52 10 Q60 7 70 10 L74 16 Z" fill={stripe}/>
-    <path d="M50 16 L54 12 Q60 9 68 12 L72 16 Z" fill="#aaddff" opacity="0.55"/>
-    <path d="M48 18 Q44 28 42 38 Q46 40 52 36 Q56 26 54 18" fill="none" stroke={stripe} strokeWidth="2" opacity="0.5"/>
-    <path d="M72 18 Q76 28 78 38 Q74 40 68 36 Q64 26 66 18" fill="none" stroke={stripe} strokeWidth="2" opacity="0.5"/>
-    <path d="M110 36 Q114 38 114 42 L110 40 Z" fill="#ffff99" opacity="0.5"/>
-    <path d="M112 34 L114 36 L114 44 L112 44 Z" fill="#ffff99" opacity="0.8"/>
+    {/* Lower body */}
+    <path d="M10 48 L110 48 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 L10 48 Z" fill="#000" opacity="0.12"/>
+    {/* Muscular rear fender bulge */}
+    <path d="M14 36 Q12 40 12 46 L20 46 Q18 38 22 32 Z" fill="#fff" opacity="0.05"/>
+    {/* Front fender bulge */}
+    <path d="M100 30 Q106 34 108 46 L100 46 Q100 36 96 30 Z" fill="#fff" opacity="0.05"/>
+    {/* Signature C-line (left) */}
+    <path d="M48 18 Q44 28 42 38 Q46 40 52 36 Q56 26 54 18" fill="none" stroke={stripe} strokeWidth="2.5" opacity="0.5"/>
+    {/* Signature C-line (right) */}
+    <path d="M72 18 Q76 28 78 38 Q74 40 68 36 Q64 26 66 18" fill="none" stroke={stripe} strokeWidth="2.5" opacity="0.5"/>
+    {/* Door panel line */}
+    <line x1="60" y1="16" x2="58" y2="46" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
+    {/* Side air curtain */}
+    <path d="M42 38 L46 36 L46 42 L42 42 Z" fill="#111" opacity="0.4"/>
+    {/* Window frame */}
+    <path d="M48 16 L52 10 Q60 7 70 10 L74 16 Z" fill="#111"/>
+    {/* Windshield */}
+    <path d="M64 16 L69 11 Q64 8 60 9.5 L58 16 Z" fill="#88bbee" opacity="0.5"/>
+    {/* Rear window */}
+    <path d="M50 16 L53 11.5 Q56 9.5 59 10.5 L57 16 Z" fill="#88bbee" opacity="0.35"/>
+    {/* Horseshoe grille */}
+    <path d="M108 34 L114 38 L114 46 L108 44 Z" fill="#111"/>
+    <path d="M109 36 Q112 38 112 42 Q112 44 109 43" fill="none" stroke="#888" strokeWidth="1" opacity="0.5"/>
+    {/* Headlights */}
+    <path d="M112 34 L114 36 L114 38 L112 37 Z" fill="#ddeeff" opacity="0.9"/>
+    <path d="M112 42 L114 43 L114 45 L112 44 Z" fill="#ddeeff" opacity="0.7"/>
+    {/* Sequential rear light */}
+    <rect x="3" y="42" width="8" height="4" rx="1" fill="#cc0000" opacity="0.85"/>
+    <line x1="5" y1="43" x2="5" y2="45" stroke="#ff4444" strokeWidth="0.8" opacity="0.5"/>
+    <line x1="7" y1="43" x2="7" y2="45" stroke="#ff4444" strokeWidth="0.8" opacity="0.5"/>
+    <line x1="9" y1="43" x2="9" y2="45" stroke="#ff4444" strokeWidth="0.8" opacity="0.5"/>
+    {/* Quad exhaust */}
+    <circle cx="7" cy="53" r="1.5" fill="#222"/><circle cx="7" cy="53" r="0.9" fill="#444"/>
+    <circle cx="11" cy="53" r="1.5" fill="#222"/><circle cx="11" cy="53" r="0.9" fill="#444"/>
+    <circle cx="7" cy="56" r="1.5" fill="#222"/><circle cx="7" cy="56" r="0.9" fill="#444"/>
+    <circle cx="11" cy="56" r="1.5" fill="#222"/><circle cx="11" cy="56" r="0.9" fill="#444"/>
     {stdWheels()}
-    <rect x="3" y="44" width="7" height="3" rx="1" fill="#ff3333" opacity="0.75"/>
   </>,
 
-  // Car 5: McLaren P1 — teardrop profile, huge rear diffuser, dihedral doors line, roof snorkel
+  // Car 5: McLaren P1 — teardrop, huge diffuser, butterfly doors, roof snorkel
   mclaren: (color, stripe) => <>
+    <ellipse cx="60" cy="63" rx="48" ry="3" fill="#000" opacity="0.3"/>
+    {/* Main body */}
     <path d="M6 46 Q8 36 16 30 L40 22 Q50 14 66 16 L80 20 L98 26 Q114 32 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
-    <path d="M40 22 L46 12 Q54 8 66 12 L72 20 Z" fill={stripe}/>
-    <path d="M43 22 L48 14 Q54 10 64 14 L69 20 Z" fill="#aaddff" opacity="0.65"/>
-    <rect x="56" y="8" width="6" height="6" rx="1.5" fill="#222"/>
-    <rect x="57" y="9" width="4" height="4" rx="1" fill={stripe} opacity="0.4"/>
-    <path d="M36 30 L46 24 L48 34 Z" fill={stripe} opacity="0.15"/>
-    <path d="M102 44 L114 48 L114 54 L106 52 Z" fill="#222" opacity="0.6"/>
-    <path d="M104 46 L112 48 L112 52 L106 50 Z" fill={stripe} opacity="0.3"/>
+    {/* Lower body */}
+    <path d="M10 48 L108 48 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 L10 48 Z" fill="#000" opacity="0.15"/>
+    {/* Butterfly door line */}
+    <path d="M58 16 Q54 24 52 32 L50 46" fill="none" stroke="#000" strokeWidth="0.6" opacity="0.25"/>
+    {/* Side radiator intake */}
+    <path d="M48 30 L56 26 L56 36 L48 38 Z" fill="#0a0a0a" opacity="0.5"/>
+    <line x1="50" y1="31" x2="54" y2="28" stroke="#222" strokeWidth="0.5"/>
+    <line x1="50" y1="33" x2="54" y2="30" stroke="#222" strokeWidth="0.5"/>
+    <line x1="50" y1="35" x2="54" y2="32" stroke="#222" strokeWidth="0.5"/>
+    {/* Roof snorkel */}
+    <rect x="56" y="8" width="7" height="7" rx="2" fill="#1a1a1a"/>
+    <rect x="57" y="9" width="5" height="5" rx="1.5" fill="#222"/>
+    <path d="M58 10 L61 10 L61 13 L58 13 Z" fill={stripe} opacity="0.3"/>
+    {/* Window frame */}
+    <path d="M40 22 L46 12 Q54 8 66 12 L72 20 Z" fill="#111"/>
+    {/* Windshield */}
+    <path d="M62 20 L65 13 Q60 10 55 11.5 L54 20 Z" fill="#88bbee" opacity="0.5"/>
+    {/* Rear window */}
+    <path d="M42 22 L47 14 Q50 11 54 12 L52 20 Z" fill="#88bbee" opacity="0.3"/>
+    {/* LED blade headlight */}
+    <path d="M110 34 L114 36 L114 40 L110 39 Z" fill="#222"/>
+    <line x1="111" y1="35.5" x2="113" y2="37" stroke="#ddeeff" strokeWidth="1.5" strokeLinecap="round" opacity="0.9"/>
+    {/* Lower light */}
+    <ellipse cx="112" cy="42" rx="2.5" ry="1.5" fill="#ffff99" opacity="0.5"/>
+    {/* Rear diffuser channels */}
+    <path d="M100 46 L114 50 L114 56 L104 54 Z" fill="#111" opacity="0.6"/>
+    <rect x="102" y="48" width="1.5" height="7" rx="0.5" fill="#222"/>
+    <rect x="106" y="49" width="1.5" height="6" rx="0.5" fill="#222"/>
+    <rect x="110" y="50" width="1.5" height="5" rx="0.5" fill="#222"/>
+    {/* Taillight */}
+    <path d="M3 42 L10 40 L10 48 L3 48 Z" fill="#cc0000" opacity="0.85"/>
+    <line x1="5" y1="42" x2="5" y2="47" stroke="#ff4444" strokeWidth="0.8" opacity="0.5"/>
+    <line x1="7" y1="41" x2="7" y2="47" stroke="#ff4444" strokeWidth="0.8" opacity="0.5"/>
+    {/* Triple exhaust */}
+    <circle cx="7" cy="54" r="1.5" fill="#222"/><circle cx="7" cy="54" r="0.9" fill="#444"/>
+    <circle cx="11" cy="53" r="1.5" fill="#222"/><circle cx="11" cy="53" r="0.9" fill="#444"/>
+    <circle cx="11" cy="56" r="1.5" fill="#222"/><circle cx="11" cy="56" r="0.9" fill="#444"/>
+    {/* Side stripe */}
+    <path d="M20 36 L100 28 L100 30 L20 38 Z" fill={stripe} opacity="0.12"/>
     {stdWheels()}
-    <ellipse cx="112" cy="38" rx="3" ry="2" fill="#ffff99" opacity="0.9"/>
-    <ellipse cx="112" cy="42" rx="2.5" ry="1.5" fill="#ffff99" opacity="0.6"/>
-    <rect x="3" y="44" width="7" height="3" rx="1" fill="#ff3333" opacity="0.75"/>
   </>,
 
   // ── CHAMP CARS ──────────────────────────────────────────────
 
-  // Champ Lv1: VW Beetle — super-round body, huge rear dome, bubbly fenders
+  // Champ Lv1: VW Beetle — round body, huge rear dome, bubbly
   beetle: (color, stripe) => <>
+    <ellipse cx="60" cy="63" rx="44" ry="3" fill="#000" opacity="0.25"/>
+    {/* Main body - round */}
     <path d="M16 46 Q18 36 26 30 L36 26 L42 22 Q50 18 58 20 L64 24 Q72 22 80 18 Q92 16 98 24 L102 32 Q108 38 108 46 L108 52 Q108 58 102 58 L20 58 Q14 58 14 52 Z" fill={color}/>
-    <path d="M42 22 L46 18 Q52 15 58 18 L60 22 Z" fill={stripe} opacity="0.5"/>
-    <path d="M44 22 L47 19 Q52 16.5 57 19 L58 22 Z" fill="#aaddff" opacity="0.5"/>
-    <path d="M80 18 Q88 16 96 22 Q100 28 100 34 L96 30 Q92 22 82 22 Z" fill={color} stroke={stripe} strokeWidth="0.5" opacity="0.3"/>
-    <rect x="62" y="12" width="1.5" height="10" rx="0.5" fill="#888"/>
-    <circle cx="63" cy="11" r="1.5" fill="#ff4444" opacity="0.6"/>
+    {/* Lower body */}
+    <path d="M18 48 L104 48 L108 52 Q108 58 102 58 L20 58 Q14 58 14 52 L18 48 Z" fill="#000" opacity="0.1"/>
+    {/* Running board */}
+    <rect x="28" y="48" width="56" height="2" rx="0.8" fill="#333" opacity="0.5"/>
+    {/* Rear dome highlight */}
+    <path d="M82 20 Q90 17 96 22 Q100 28 100 34" fill="none" stroke="#fff" strokeWidth="0.5" opacity="0.1"/>
+    {/* Rear engine lid louvers */}
+    <line x1="84" y1="22" x2="86" y2="28" stroke="#000" strokeWidth="0.5" opacity="0.25"/>
+    <line x1="88" y1="20" x2="89" y2="27" stroke="#000" strokeWidth="0.5" opacity="0.25"/>
+    <line x1="92" y1="19" x2="92" y2="26" stroke="#000" strokeWidth="0.5" opacity="0.25"/>
+    {/* Door panel */}
+    <line x1="54" y1="22" x2="52" y2="46" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
+    {/* Door handle */}
+    <rect x="50" y="30" width="3" height="1.2" rx="0.5" fill="#888" opacity="0.5"/>
+    {/* Rain gutter line */}
+    <path d="M42 22 Q50 18 58 20 L64 24" fill="none" stroke="#000" strokeWidth="0.4" opacity="0.15"/>
+    {/* Window frame */}
+    <path d="M42 22 L46 18 Q52 15 58 18 L60 22 Z" fill="#111"/>
+    {/* Windshield */}
+    <path d="M55 22 L57 18.5 Q54 16 50 17.5 L48 22 Z" fill="#88bbee" opacity="0.45"/>
+    {/* Rear window */}
+    <path d="M44 22 L47 19 Q48 17.5 50 17.8 L49 22 Z" fill="#88bbee" opacity="0.3"/>
+    {/* Front bumper */}
+    <path d="M104 42 L108 42 L108 48 L104 48 Z" fill="#888" opacity="0.4"/>
+    {/* Round headlight with chrome ring */}
+    <circle cx="106" cy="38" r="3.5" fill="#888" opacity="0.5"/>
+    <circle cx="106" cy="38" r="3" fill="#222"/>
+    <circle cx="106" cy="38" r="2.5" fill="#ddeeff" opacity="0.8"/>
+    <circle cx="106" cy="38" r="1.2" fill="#ffff99" opacity="0.9"/>
+    {/* Rear bumper */}
+    <path d="M14 42 L18 40 L18 48 L14 48 Z" fill="#888" opacity="0.4"/>
+    {/* Taillight */}
+    <circle cx="16" cy="42" r="2.5" fill="#cc0000" opacity="0.7"/>
+    <circle cx="16" cy="42" r="1.5" fill="#ff3333" opacity="0.4"/>
+    {/* Antenna */}
+    <rect x="62" y="12" width="1.2" height="10" rx="0.4" fill="#888"/>
+    <circle cx="62.6" cy="11.5" r="1.2" fill="#ff4444" opacity="0.5"/>
     {stdWheels()}
-    <circle cx="106" cy="38" r="3" fill="#ffff99" opacity="0.7"/>
-    <circle cx="106" cy="44" r="2.5" fill="#ffff99" opacity="0.5"/>
-    <rect x="12" y="44" width="6" height="3" rx="1.5" fill="#ff3333" opacity="0.6"/>
   </>,
 
-  // Champ Lv2: Dodge Challenger — long flat hood, boxy, twin hood stripes, hood scoop
+  // Champ Lv2: Dodge Challenger — long flat hood, boxy, muscular
   challenger: (color, stripe) => <>
+    <ellipse cx="60" cy="63" rx="48" ry="3" fill="#000" opacity="0.3"/>
+    {/* Main body - long & boxy */}
     <path d="M8 46 Q10 34 18 28 L56 22 Q62 18 70 18 L76 22 Q82 24 88 28 L106 32 Q112 36 112 46 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={color}/>
-    <path d="M62 22 L66 14 Q70 11 76 14 L80 22 Z" fill={stripe}/>
-    <path d="M64 22 L68 16 Q70 13 74 16 L78 22 Z" fill="#aaddff" opacity="0.6"/>
-    <rect x="24" y="26" width="30" height="2" rx="0.8" fill={stripe} opacity="0.6"/>
-    <rect x="24" y="30" width="30" height="2" rx="0.8" fill={stripe} opacity="0.6"/>
-    <path d="M40 22 L48 20 L48 26 L40 26 Z" fill="#222" opacity="0.4"/>
-    <rect x="14" y="38" width="92" height="1.5" rx="0.5" fill={stripe} opacity="0.2"/>
+    {/* Lower body */}
+    <path d="M12 48 L108 48 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 L12 48 Z" fill="#000" opacity="0.12"/>
+    {/* Muscular fender flares */}
+    <path d="M96 46 Q98 38 104 32" fill="none" stroke="#fff" strokeWidth="0.5" opacity="0.08"/>
+    <path d="M22 46 Q20 38 16 34" fill="none" stroke="#fff" strokeWidth="0.5" opacity="0.08"/>
+    {/* Hood scoop */}
+    <path d="M38 22 L48 20 L48 26 L38 26 Z" fill="#111" opacity="0.5"/>
+    <path d="M40 23 L46 22 L46 25 L40 25 Z" fill="#222"/>
+    {/* Twin hood stripes */}
+    <rect x="22" y="25" width="34" height="2" rx="0.8" fill={stripe} opacity="0.6"/>
+    <rect x="22" y="29" width="34" height="2" rx="0.8" fill={stripe} opacity="0.6"/>
+    {/* Body line */}
+    <rect x="14" y="38" width="92" height="1.5" rx="0.5" fill={stripe} opacity="0.15"/>
+    {/* Door panel */}
+    <line x1="66" y1="20" x2="64" y2="46" stroke="#000" strokeWidth="0.6" opacity="0.2"/>
+    {/* Gas cap */}
+    <circle cx="42" cy="34" r="1.5" fill="#333" opacity="0.4"/>
+    {/* Window frame */}
+    <path d="M62 22 L66 14 Q70 11 76 14 L80 22 Z" fill="#111"/>
+    {/* Windshield */}
+    <path d="M72 22 L75 15 Q72 12.5 68 13.5 L66 22 Z" fill="#88bbee" opacity="0.5"/>
+    {/* Rear window */}
+    <path d="M64 22 L67 15.5 Q68 14 69 14 L68 22 Z" fill="#88bbee" opacity="0.35"/>
+    {/* Front splitter */}
+    <rect x="106" y="46" width="8" height="2" rx="0.5" fill="#222"/>
+    {/* Quad headlights */}
+    <rect x="108" y="34" width="5" height="9" rx="1" fill="#222"/>
+    <rect x="109" y="35" width="3" height="3.5" rx="0.8" fill="#ddeeff" opacity="0.9"/>
+    <rect x="109" y="40" width="3" height="2.5" rx="0.8" fill="#ffff99" opacity="0.7"/>
+    {/* Taillight */}
+    <rect x="5" y="36" width="6" height="7" rx="1" fill="#cc0000" opacity="0.85"/>
+    <line x1="7" y1="37" x2="7" y2="42" stroke="#ff4444" strokeWidth="0.8" opacity="0.5"/>
+    <line x1="9" y1="37" x2="9" y2="42" stroke="#ff4444" strokeWidth="0.8" opacity="0.5"/>
+    {/* Trunk lip */}
+    <rect x="7" y="34" width="8" height="1.5" rx="0.5" fill="#222"/>
+    {/* Dual exhaust */}
+    <circle cx="9" cy="54" r="2" fill="#222"/><circle cx="9" cy="54" r="1.3" fill="#444"/>
+    <circle cx="14" cy="54" r="2" fill="#222"/><circle cx="14" cy="54" r="1.3" fill="#444"/>
     {stdWheels()}
-    <rect x="108" y="36" width="5" height="8" rx="1" fill="#ffff99" opacity="0.85"/>
-    <rect x="5" y="38" width="6" height="6" rx="1" fill="#ff3333" opacity="0.8"/>
   </>,
 
-  // Champ Lv3: Porsche GT3 RS — 911-based, massive rear wing, front splitter, wide fenders
+  // Champ Lv3: Porsche GT3 RS — 911-based, massive rear wing, wide fenders
   gt3: (color, stripe) => <>
+    <ellipse cx="60" cy="63" rx="50" ry="3" fill="#000" opacity="0.3"/>
+    {/* Main body */}
     <path d="M6 46 Q8 36 16 30 L32 26 L48 18 Q56 14 66 16 L72 20 Q80 22 86 20 Q96 16 102 24 L108 32 Q114 38 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
-    <path d="M48 18 L52 11 Q58 8 68 12 L72 20 Z" fill={stripe}/>
-    <path d="M50 18 L54 13 Q58 10 66 14 L70 20 Z" fill="#aaddff" opacity="0.6"/>
-    <rect x="84" y="6" width="3" height="14" rx="1" fill="#444"/>
-    <rect x="100" y="6" width="3" height="14" rx="1" fill="#444"/>
-    <path d="M82 6 L105 6 L104 10 L83 10 Z" fill={stripe} opacity="0.8"/>
-    <path d="M6 50 L16 52 L6 54 Z" fill={stripe} opacity="0.6"/>
-    <circle cx="54" cy="30" r="5" fill="#fff" opacity="0.12"/>
-    <text x="54" y="33" textAnchor="middle" fontSize="8" fill="#fff" fontWeight="900" opacity="0.4">1</text>
+    {/* Lower body */}
+    <path d="M10 48 L110 48 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 L10 48 Z" fill="#000" opacity="0.12"/>
+    {/* Wide fender bulges */}
+    <path d="M98 46 Q100 38 106 30" fill="none" stroke="#fff" strokeWidth="0.5" opacity="0.08"/>
+    <path d="M20 46 Q18 38 12 34" fill="none" stroke="#fff" strokeWidth="0.5" opacity="0.08"/>
+    {/* NACA duct on hood */}
+    <path d="M96 26 L102 24 L100 30 L94 30 Z" fill="#111" opacity="0.4"/>
+    {/* Door panel */}
+    <line x1="58" y1="18" x2="56" y2="46" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
+    {/* Swan-neck wing mount (left) */}
+    <path d="M86 20 Q86 10 88 6" fill="none" stroke="#444" strokeWidth="2.5" strokeLinecap="round"/>
+    {/* Swan-neck wing mount (right) */}
+    <path d="M100 22 Q100 12 102 6" fill="none" stroke="#444" strokeWidth="2.5" strokeLinecap="round"/>
+    {/* Wing endplates */}
+    <rect x="82" y="4" width="3" height="10" rx="1" fill="#333"/>
+    <rect x="102" y="4" width="3" height="10" rx="1" fill="#333"/>
+    {/* Wing surface */}
+    <path d="M82 4 L107 4 L106 9 L83 9 Z" fill={stripe} opacity="0.8"/>
+    <path d="M83 7 L106 7" fill="none" stroke="#000" strokeWidth="0.4" opacity="0.3"/>
+    {/* Front canard */}
+    <path d="M108 42 L116 40 L116 42 L108 44 Z" fill="#333"/>
+    {/* Front splitter */}
+    <path d="M108 48 L116 46 L116 48 L108 50 Z" fill="#222"/>
+    {/* Window frame */}
+    <path d="M48 18 L52 11 Q58 8 68 12 L72 20 Z" fill="#111"/>
+    {/* Windshield */}
+    <path d="M62 20 L67 13 Q62 10 58 11 L56 20 Z" fill="#88bbee" opacity="0.5"/>
+    {/* Roll cage bars visible in window */}
+    <line x1="58" y1="20" x2="64" y2="12" stroke="#666" strokeWidth="0.8" opacity="0.35"/>
+    <line x1="60" y1="20" x2="66" y2="13" stroke="#666" strokeWidth="0.8" opacity="0.35"/>
+    {/* Race number circle */}
+    <circle cx="54" cy="32" r="5" fill="#fff" opacity="0.15"/>
+    <text x="54" y="35" textAnchor="middle" fontSize="8" fill="#fff" fontWeight="900" opacity="0.4">1</text>
+    {/* Headlights */}
+    <circle cx="112" cy="36" r="3" fill="#222"/>
+    <circle cx="112" cy="36" r="2.2" fill="#ddeeff" opacity="0.9"/>
+    <circle cx="112" cy="36" r="1" fill="#ffff99"/>
+    <ellipse cx="112" cy="42" rx="2.5" ry="1.5" fill="#ffff99" opacity="0.5"/>
+    {/* Taillights */}
+    <rect x="3" y="42" width="6" height="4" rx="1" fill="#cc0000" opacity="0.85"/>
+    <line x1="5" y1="43" x2="5" y2="45" stroke="#ff4444" strokeWidth="0.8" opacity="0.5"/>
+    <line x1="7" y1="43" x2="7" y2="45" stroke="#ff4444" strokeWidth="0.8" opacity="0.5"/>
+    {/* Center-lock wheel hint (yellow centers) */}
+    <circle cx="32" cy="57" r="1.2" fill={stripe} opacity="0.6"/>
+    <circle cx="88" cy="57" r="1.2" fill={stripe} opacity="0.6"/>
     {stdWheels()}
-    <circle cx="112" cy="38" r="3" fill="#ffff99" opacity="0.9"/>
-    <circle cx="112" cy="44" r="2.5" fill="#ffff99" opacity="0.6"/>
-    <rect x="3" y="46" width="6" height="2.5" rx="1" fill="#ff3333" opacity="0.75"/>
   </>,
 
-  // Champ Lv4: Modern F1 — narrow nose, halo device, exposed wheels, sidepod intakes
-  f1: (color, stripe) => <>
-    <path d="M24 40 L4 38 L4 42 L24 44 Z" fill={color}/>
-    <path d="M24 34 L24 48 L74 48 Q82 48 88 42 L88 34 Q82 28 74 28 L40 28 Z" fill={color}/>
-    <path d="M64 28 L68 20 Q72 18 76 20 L78 28 Z" fill="#222"/>
-    <path d="M66 28 L69 22 Q72 20 75 22 L77 28 Z" fill="#aaddff" opacity="0.45"/>
-    <path d="M66 28 Q68 24 72 24 Q76 24 78 28" fill="none" stroke="#666" strokeWidth="2.5" strokeLinecap="round"/>
-    <path d="M88 40 L102 42 L102 46 L88 44 Z" fill={color}/>
-    <rect x="94" y="16" width="3" height="26" rx="1" fill="#444"/>
-    <rect x="104" y="16" width="3" height="26" rx="1" fill="#444"/>
-    <path d="M92 16 L109 16 L108 20 L93 20 Z" fill={stripe} opacity="0.8"/>
-    <path d="M4 36 L4 44 L8 44 L8 36 Z" fill={stripe} opacity="0.5"/>
-    <rect x="32" y="36" width="50" height="1.5" rx="0.5" fill={stripe} opacity="0.25"/>
-    <circle cx="74" cy="20" r="2" fill={stripe} opacity="0.8"/>
-    <circle cx="28" cy="57" r="9" fill="#111"/><circle cx="28" cy="57" r="6" fill="#333"/><circle cx="28" cy="57" r="2.5" fill="#666"/>
-    <circle cx="98" cy="57" r="9" fill="#111"/><circle cx="98" cy="57" r="6" fill="#333"/><circle cx="98" cy="57" r="2.5" fill="#666"/>
-    <ellipse cx="2" cy="40" rx="2.5" ry="2" fill="#ffff99" opacity="0.8"/>
-  </>,
+  // Champ Lv4: Modern F1 — narrow nose, halo, exposed wheels, sidepods
+  f1: (color, stripe) => {
+    const f1Wheel = (cx) => <>
+      <circle cx={cx} cy="57" r="9.5" fill="#0a0a0a"/>
+      <circle cx={cx} cy="57" r="9" fill="#1a1a1a"/>
+      <circle cx={cx} cy="57" r="7" fill="#444"/>
+      <circle cx={cx} cy="57" r="6.5" fill="#3a3a3a"/>
+      <circle cx={cx} cy="57" r="5" fill="#661111" opacity="0.3"/>
+      {[0, 72, 144, 216, 288].map((a, i) => {
+        const rad = a * Math.PI / 180;
+        return <line key={i} x1={cx} y1={57} x2={cx + Math.cos(rad) * 6} y2={57 + Math.sin(rad) * 6} stroke="#666" strokeWidth="1.8" strokeLinecap="round"/>;
+      })}
+      <circle cx={cx} cy="57" r="2" fill="#888"/>
+      <circle cx={cx} cy="57" r="1" fill="#aaa"/>
+    </>;
+    return <>
+      <ellipse cx="60" cy="63" rx="50" ry="2.5" fill="#000" opacity="0.2"/>
+      {/* Front wing */}
+      <path d="M4 36 L4 44 L24 42 L24 38 Z" fill={color}/>
+      <path d="M2 34 L8 34 L8 46 L2 46 Z" fill={stripe} opacity="0.5"/>
+      {/* Wing endplate front */}
+      <rect x="0" y="33" width="3" height="14" rx="0.5" fill="#333"/>
+      {/* Floor */}
+      <path d="M24 38 L24 44 L88 44 L88 38 Z" fill="#111" opacity="0.3"/>
+      {/* Main body/chassis */}
+      <path d="M24 34 L24 48 L74 48 Q82 48 88 42 L88 34 Q82 28 74 28 L40 28 Z" fill={color}/>
+      {/* Bargeboard */}
+      <path d="M30 32 L36 30 L36 36 L30 36 Z" fill="#333" opacity="0.4"/>
+      {/* Sidepod inlet */}
+      <path d="M42 28 L50 28 L48 34 L42 34 Z" fill="#111" opacity="0.5"/>
+      <line x1="44" y1="29" x2="43" y2="33" stroke="#222" strokeWidth="0.5"/>
+      <line x1="46" y1="29" x2="45" y2="33" stroke="#222" strokeWidth="0.5"/>
+      {/* Cockpit area */}
+      <path d="M64 28 L68 20 Q72 18 76 20 L78 28 Z" fill="#222"/>
+      <path d="M66 28 L69 22 Q72 20 75 22 L77 28 Z" fill="#88bbee" opacity="0.4"/>
+      {/* Halo device */}
+      <path d="M66 28 Q68 24 72 24 Q76 24 78 28" fill="none" stroke="#999" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M66 28 Q68 24 72 24 Q76 24 78 28" fill="none" stroke="#bbb" strokeWidth="1" strokeLinecap="round"/>
+      {/* T-cam */}
+      <circle cx="74" cy="20" r="2" fill={stripe} opacity="0.8"/>
+      {/* DRS rear wing */}
+      <rect x="94" y="16" width="2.5" height="26" rx="0.8" fill="#333"/>
+      <rect x="104" y="16" width="2.5" height="26" rx="0.8" fill="#333"/>
+      <path d="M92 14 L109 14 L108 19 L93 19 Z" fill={stripe} opacity="0.8"/>
+      <path d="M93 17 L108 17" fill="none" stroke="#000" strokeWidth="0.4" opacity="0.3"/>
+      {/* Wing endplates */}
+      <rect x="90" y="12" width="3" height="10" rx="0.5" fill="#444"/>
+      <rect x="108" y="12" width="3" height="10" rx="0.5" fill="#444"/>
+      {/* Rear beam wing */}
+      <path d="M88 40 L102 42 L102 46 L88 44 Z" fill={color}/>
+      {/* Floor edge detail */}
+      <path d="M28 46 L84 46 L84 48 L28 48 Z" fill={stripe} opacity="0.15"/>
+      {/* Body stripe */}
+      <rect x="32" y="36" width="50" height="1.5" rx="0.5" fill={stripe} opacity="0.2"/>
+      {/* Nose camera */}
+      <rect x="4" y="39" width="2" height="2" rx="0.5" fill="#333"/>
+      {/* Rear rain light */}
+      <rect x="96" y="42" width="8" height="2" rx="0.8" fill="#cc0000" opacity="0.6"/>
+      {f1Wheel(28)}{f1Wheel(98)}
+    </>;
+  },
 
-  // Champ Lv5: Phantom X — futuristic concept, angular, canopy cockpit, enclosed wheels, LED strips
+  // Champ Lv5: Phantom X — futuristic concept, angular, canopy, LED strips
   phantom: (color, stripe) => <>
+    <ellipse cx="60" cy="63" rx="50" ry="3.5" fill="#000" opacity="0.3"/>
+    {/* Main body - angular/aggressive */}
     <path d="M6 46 L10 34 L22 26 L44 18 L54 12 L72 14 L84 20 L100 26 L112 34 L114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
-    <path d="M54 18 Q60 10 72 14 L68 20 Z" fill={stripe} opacity="0.25"/>
-    <path d="M56 18 Q62 12 70 15 L67 20 Z" fill="#aaddff" opacity="0.45"/>
+    {/* Lower body */}
+    <path d="M10 48 L110 48 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 L10 48 Z" fill="#000" opacity="0.15"/>
+    {/* Angular body crease */}
+    <line x1="22" y1="34" x2="106" y2="30" stroke="#fff" strokeWidth="0.5" opacity="0.1"/>
+    {/* Door panel line */}
+    <line x1="60" y1="14" x2="58" y2="46" stroke="#000" strokeWidth="0.5" opacity="0.2"/>
+    {/* Canopy cockpit */}
+    <path d="M54 18 Q60 10 72 14 L68 22 Z" fill="#111"/>
+    <path d="M56 18 Q62 11 70 14.5 L67 21 Z" fill="#446688" opacity="0.5"/>
+    <path d="M58 18 Q62 13 66 15" fill="none" stroke="#88bbee" strokeWidth="0.5" opacity="0.3"/>
+    {/* LED strip running light - front */}
+    <path d="M84 22 L110 32 L110 34 L84 24 Z" fill={stripe} opacity="0.5"/>
+    {/* LED strip - main body */}
     <path d="M10 44 L110 44 L110 46 L10 46 Z" fill={stripe} opacity="0.7"/>
-    <path d="M18 36 L104 32 L104 34 L18 38 Z" fill={stripe} opacity="0.35"/>
-    <path d="M88 14 L88 8 L92 8 L92 20" fill="none" stroke="#444" strokeWidth="2"/>
-    <path d="M100 14 L100 8 L104 8 L104 20" fill="none" stroke="#444" strokeWidth="2"/>
-    <path d="M86 8 L106 8 L105 11 L87 11 Z" fill={stripe} opacity="0.7"/>
-    <path d="M22 48 L42 48 Q44 48 44 50 L44 56 Q44 58 42 58 L22 58 Q20 58 20 56 L20 50 Q20 48 22 48 Z" fill="#111" opacity="0.3"/>
-    <path d="M78 48 L98 48 Q100 48 100 50 L100 56 Q100 58 98 58 L78 58 Q76 58 76 56 L76 50 Q76 48 78 48 Z" fill="#111" opacity="0.3"/>
+    {/* Secondary light strip */}
+    <path d="M18 36 L104 32 L104 33 L18 37 Z" fill={stripe} opacity="0.3"/>
+    {/* Aero wheel cover - front */}
+    <path d="M22 48 L42 48 Q44 48 44 50 L44 56 Q44 58 42 58 L22 58 Q20 58 20 56 L20 50 Q20 48 22 48 Z" fill={color} opacity="0.4"/>
+    <path d="M24 50 L40 50 L40 56 L24 56 Z" fill="#111" opacity="0.2"/>
+    {/* Aero wheel cover - rear */}
+    <path d="M78 48 L98 48 Q100 48 100 50 L100 56 Q100 58 98 58 L78 58 Q76 58 76 56 L76 50 Q76 48 78 48 Z" fill={color} opacity="0.4"/>
+    <path d="M80 50 L96 50 L96 56 L80 56 Z" fill="#111" opacity="0.2"/>
+    {/* Active rear wing */}
+    <path d="M88 14 L88 8 L92 6 L92 20" fill="none" stroke="#333" strokeWidth="2"/>
+    <path d="M100 14 L100 8 L104 6 L104 20" fill="none" stroke="#333" strokeWidth="2"/>
+    <path d="M86 6 L106 4 L105 9 L87 10 Z" fill={stripe} opacity="0.7"/>
+    <path d="M87 8 L105 7" fill="none" stroke="#000" strokeWidth="0.3" opacity="0.3"/>
+    {/* Light-pipe headlight */}
+    <path d="M110 34 L114 36 L114 42 L110 42 Z" fill="#111"/>
+    <line x1="111" y1="35" x2="113" y2="37" stroke={stripe} strokeWidth="1.5" strokeLinecap="round" opacity="0.9"/>
+    <line x1="111" y1="38" x2="113" y2="39.5" stroke={stripe} strokeWidth="1" strokeLinecap="round" opacity="0.6"/>
+    {/* Light-pipe taillight */}
+    <path d="M6 40 L10 38 L10 46 L6 46 Z" fill="#111"/>
+    <line x1="7" y1="40" x2="9" y2="39" stroke="#ff0000" strokeWidth="1.5" strokeLinecap="round" opacity="0.8"/>
+    <line x1="7" y1="43" x2="9" y2="42" stroke="#ff0000" strokeWidth="1" strokeLinecap="round" opacity="0.6"/>
+    {/* Carbon diffuser */}
+    <path d="M6 48 L14 48 L14 56 L6 54 Z" fill="#1a1a1a"/>
+    <line x1="8" y1="49" x2="8" y2="54" stroke="#333" strokeWidth="0.5"/>
+    <line x1="10" y1="49" x2="10" y2="55" stroke="#333" strokeWidth="0.5"/>
+    <line x1="12" y1="48" x2="12" y2="55" stroke="#333" strokeWidth="0.5"/>
     {stdWheels()}
-    <path d="M110 36 L114 38 L114 44 L110 44 Z" fill={stripe} opacity="0.8"/>
-    <path d="M6 42 L10 40 L10 46 L6 46 Z" fill={stripe} opacity="0.8"/>
   </>,
 };
 

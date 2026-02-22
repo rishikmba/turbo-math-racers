@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
+const DISPLAY_FONT = "'Space Grotesk', sans-serif";
+
 const TIERS = [
   { id: 1, name: "GEAR 1", tables: [2, 5, 10], color: "#00e676", label: "\u00d72, \u00d75, \u00d710", unlockCoins: 0   },
   { id: 2, name: "GEAR 2", tables: [3, 4],     color: "#ffdd00", label: "\u00d73, \u00d74",       unlockCoins: 20  },
@@ -11,11 +13,11 @@ const TIERS = [
 ];
 
 const CARS = [
-  { id: 1, name: "Starter Sedan",   color: "#cc2200", stripe: "#ff6644", unlockCoins: 0,   shape: "sedan"   },
-  { id: 2, name: "Street Racer",    color: "#1155cc", stripe: "#55aaff", unlockCoins: 30,  shape: "hatch"   },
-  { id: 3, name: "Speed Demon",     color: "#116622", stripe: "#44ee88", unlockCoins: 75,  shape: "sports"  },
-  { id: 4, name: "Monster Crusher", color: "#aa6600", stripe: "#ffee22", unlockCoins: 130, shape: "monster" },
-  { id: 5, name: "Turbo Beast",     color: "#660088", stripe: "#dd66ff", unlockCoins: 200, shape: "super"   },
+  { id: 1, name: "GR86",           color: "#cc2200", stripe: "#ff6644", unlockCoins: 0,   shape: "gr86"      },
+  { id: 2, name: "Neuf-Onze",      color: "#1155cc", stripe: "#55aaff", unlockCoins: 30,  shape: "porsche"   },
+  { id: 3, name: "Aventador",      color: "#116622", stripe: "#44ee88", unlockCoins: 75,  shape: "aventador" },
+  { id: 4, name: "Chiron",         color: "#aa6600", stripe: "#ffee22", unlockCoins: 130, shape: "chiron"    },
+  { id: 5, name: "McLaren P1",     color: "#660088", stripe: "#dd66ff", unlockCoins: 200, shape: "mclaren"   },
 ];
 
 const QUESTIONS_PER_RACE = 12;
@@ -32,11 +34,11 @@ const LEVELS = [
 ];
 
 const CHAMP_CARS = {
-  1: { name: "Ol' Rusty",       color: "#8a7a6a", stripe: "#aa9966", shape: "beater"  },
-  2: { name: "Thunderbolt",     color: "#2a2a2a", stripe: "#cc0000", shape: "muscle"  },
-  3: { name: "Blue Lightning",  color: "#003388", stripe: "#ffdd00", shape: "racecar" },
-  4: { name: "Formula One",     color: "#cc0000", stripe: "#ffffff", shape: "f1"      },
-  5: { name: "Quantum",         color: "#1a0033", stripe: "#00ffcc", shape: "future"  },
+  1: { name: "Ol' Beetle",      color: "#8a7a6a", stripe: "#aa9966", shape: "beetle"     },
+  2: { name: "Challenger",      color: "#2a2a2a", stripe: "#cc0000", shape: "challenger" },
+  3: { name: "GT3 RS",          color: "#003388", stripe: "#ffdd00", shape: "gt3"        },
+  4: { name: "F1 Car",          color: "#cc0000", stripe: "#ffffff", shape: "f1"         },
+  5: { name: "Phantom X",       color: "#1a0033", stripe: "#00ffcc", shape: "phantom"    },
 };
 
 function getChampCar(levelId) {
@@ -342,164 +344,160 @@ function stdWheels() {
 const CAR_SHAPES = {
   // ── PLAYER CARS ──────────────────────────────────────────────
 
-  // Car 1: Basic sedan — boxy, tall roofline, very plain
-  sedan: (color, stripe) => <>
-    <path d="M12 44 Q14 32 28 28 L40 24 L44 14 Q54 10 66 14 L70 24 L92 28 Q106 32 108 44 L108 52 Q108 58 102 58 L18 58 Q12 58 12 52 Z" fill={color}/>
-    <path d="M44 24 L46 14 Q54 10.5 64 14 L66 24 Z" fill={stripe}/>
-    <path d="M46 24 L47 16 Q54 12 63 16 L64 24 Z" fill="#aaddff" opacity="0.7"/>
-    <rect x="20" y="36" width="80" height="2" rx="1" fill={stripe} opacity="0.3"/>
+  // Car 1: Toyota GR86 — compact coupe, long hood, sloped roofline, small rear lip
+  gr86: (color, stripe) => <>
+    <path d="M10 46 Q12 36 22 30 L40 24 L48 16 Q56 13 66 16 L72 22 L96 28 Q110 34 112 46 L112 52 Q112 58 106 58 L16 58 Q10 58 10 52 Z" fill={color}/>
+    <path d="M48 22 L52 14 Q58 11 66 14 L70 22 Z" fill={stripe}/>
+    <path d="M50 22 L54 16 Q58 13 64 16 L68 22 Z" fill="#aaddff" opacity="0.65"/>
+    <path d="M72 22 L74 20 L78 22 Z" fill={stripe} opacity="0.5"/>
+    <path d="M16 40 L42 34 L42 40 Z" fill={stripe} opacity="0.15"/>
     {stdWheels()}
-    <ellipse cx="106" cy="40" rx="3" ry="2.5" fill="#ffff99" opacity="0.85"/>
-    <rect x="9" y="42" width="6" height="4" rx="1.5" fill="#ff3333" opacity="0.7"/>
-    <rect x="9" y="47" width="5" height="3" rx="1.5" fill="#333"/>
+    <ellipse cx="110" cy="42" rx="3.5" ry="2" fill="#ffff99" opacity="0.9"/>
+    <rect x="7" y="46" width="6" height="2.5" rx="1" fill="#ff3333" opacity="0.7"/>
   </>,
 
-  // Car 2: Sporty hatchback — lower, sloped rear, small spoiler
-  hatch: (color, stripe) => <>
-    <path d="M10 44 Q12 30 28 26 L46 20 Q56 16 70 20 L88 24 Q106 28 110 44 L110 52 Q110 58 104 58 L16 58 Q10 58 10 52 Z" fill={color}/>
-    <path d="M46 20 L50 10 Q58 7 68 10 L72 20 Z" fill={stripe}/>
-    <path d="M49 20 L52 12 Q58 9 66 12 L69 20 Z" fill="#aaddff" opacity="0.7"/>
-    <path d="M82 24 L82 20 L90 22 Z" fill={stripe} opacity="0.6"/>
-    <path d="M18 40 L30 36 L36 40 Z" fill={stripe} opacity="0.25"/>
+  // Car 2: Porsche 911 — iconic rear hump, flowing fastback, round headlights, sloped nose
+  porsche: (color, stripe) => <>
+    <path d="M8 46 Q10 38 18 34 L30 30 L48 20 Q56 16 64 18 L72 22 Q80 24 86 22 Q96 18 100 22 L106 30 Q112 36 112 46 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={color}/>
+    <path d="M48 20 L52 13 Q58 10 66 14 L70 22 Z" fill={stripe}/>
+    <path d="M50 20 L54 15 Q58 12 64 15 L68 22 Z" fill="#aaddff" opacity="0.65"/>
+    <path d="M86 22 Q92 18 100 22 L98 26 Q92 22 86 26 Z" fill={color} stroke={stripe} strokeWidth="0.8" opacity="0.4"/>
     {stdWheels()}
-    <ellipse cx="108" cy="40" rx="4" ry="3" fill="#ffff99" opacity="0.9"/>
-    <ellipse cx="108" cy="45" rx="3" ry="2" fill="#ffff99" opacity="0.6"/>
-    <rect x="7" y="45" width="7" height="3.5" rx="1.5" fill="#ff3333" opacity="0.7"/>
+    <circle cx="110" cy="38" r="3" fill="#ffff99" opacity="0.9"/>
+    <circle cx="110" cy="44" r="2.5" fill="#ffff99" opacity="0.6"/>
+    <rect x="5" y="46" width="6" height="2.5" rx="1" fill="#ff3333" opacity="0.7"/>
   </>,
 
-  // Car 3: Sports car — very low, sleek curves, rear engine hump
-  sports: (color, stripe) => <>
-    <path d="M8 46 Q10 34 24 28 L44 20 Q54 14 72 18 L94 24 Q112 30 112 44 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={color}/>
-    <path d="M44 20 L48 12 Q56 8 70 12 L76 20 Z" fill={stripe}/>
-    <path d="M47 20 L50 14 Q56 10.5 68 14 L73 20 Z" fill="#aaddff" opacity="0.7"/>
-    <path d="M78 18 Q88 15 96 22 L90 24 Z" fill={color} stroke={stripe} strokeWidth="1" opacity="0.5"/>
-    <path d="M14 42 L36 36 L36 42 Z" fill={stripe} opacity="0.2"/>
+  // Car 3: Lamborghini Aventador — ultra-angular wedge, straight lines, side intakes
+  aventador: (color, stripe) => <>
+    <path d="M6 46 L10 36 L20 30 L44 22 L52 14 L68 14 L74 20 L96 24 L110 32 L114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M52 22 L56 14 L66 14 L70 22 Z" fill={stripe}/>
+    <path d="M54 22 L58 16 L64 16 L68 22 Z" fill="#aaddff" opacity="0.6"/>
+    <path d="M40 34 L52 28 L52 38 Z" fill="#111" opacity="0.5"/>
+    <path d="M42 35 L50 30 L50 37 Z" fill={stripe} opacity="0.2"/>
+    <path d="M74 20 L78 18 L80 22 Z" fill={stripe} opacity="0.4"/>
     {stdWheels()}
-    <ellipse cx="110" cy="40" rx="4" ry="2.5" fill="#ffff99" opacity="0.9"/>
-    <ellipse cx="110" cy="44" rx="3" ry="2" fill="#ffff99" opacity="0.6"/>
-    <rect x="5" y="46" width="7" height="3" rx="1.5" fill="#ff3333" opacity="0.7"/>
+    <path d="M108 36 L114 38 L114 42 L108 42 Z" fill="#ffff99" opacity="0.85"/>
+    <path d="M6 44 L12 42 L12 48 L6 48 Z" fill="#ff3333" opacity="0.75"/>
   </>,
 
-  // Car 4: Monster truck — lifted body, huge wheels, roll cage
-  monster: (color, stripe) => <>
-    <path d="M20 38 L20 28 L32 24 L44 18 Q54 14 66 18 L78 24 L100 28 L100 38 L100 42 L20 42 Z" fill={color}/>
-    <path d="M44 18 L48 12 Q54 9 64 12 L68 18 Z" fill={stripe}/>
-    <path d="M47 18 L50 14 Q54 11 62 14 L65 18 Z" fill="#aaddff" opacity="0.65"/>
-    <rect x="46" y="10" width="2" height="8" rx="1" fill="#666"/>
-    <rect x="64" y="10" width="2" height="8" rx="1" fill="#666"/>
-    <rect x="44" y="9" width="24" height="2" rx="1" fill="#666"/>
-    <rect x="22" y="32" width="76" height="2" rx="1" fill={stripe} opacity="0.4"/>
-    <circle cx="32" cy="57" r="12" fill="#111"/><circle cx="32" cy="57" r="9" fill="#333"/><circle cx="32" cy="57" r="4" fill="#666"/>
-    <circle cx="88" cy="57" r="12" fill="#111"/><circle cx="88" cy="57" r="9" fill="#333"/><circle cx="88" cy="57" r="4" fill="#666"/>
-    <ellipse cx="99" cy="34" rx="3" ry="2" fill="#ffff99" opacity="0.85"/>
-    <rect x="17" y="34" width="6" height="3" rx="1.5" fill="#ff3333" opacity="0.7"/>
-    <path d="M20 42 L26 48 L20 48 Z" fill="#555" opacity="0.5"/>
-    <path d="M100 42 L94 48 L100 48 Z" fill="#555" opacity="0.5"/>
+  // Car 4: Bugatti Chiron — widest body, signature C-line, massive rounded rear, horseshoe grille
+  chiron: (color, stripe) => <>
+    <path d="M6 46 Q8 34 16 28 L36 22 L48 16 Q58 12 70 16 L84 20 Q96 22 104 28 Q114 34 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M48 16 L52 10 Q60 7 70 10 L74 16 Z" fill={stripe}/>
+    <path d="M50 16 L54 12 Q60 9 68 12 L72 16 Z" fill="#aaddff" opacity="0.55"/>
+    <path d="M48 18 Q44 28 42 38 Q46 40 52 36 Q56 26 54 18" fill="none" stroke={stripe} strokeWidth="2" opacity="0.5"/>
+    <path d="M72 18 Q76 28 78 38 Q74 40 68 36 Q64 26 66 18" fill="none" stroke={stripe} strokeWidth="2" opacity="0.5"/>
+    <path d="M110 36 Q114 38 114 42 L110 40 Z" fill="#ffff99" opacity="0.5"/>
+    <path d="M112 34 L114 36 L114 44 L112 44 Z" fill="#ffff99" opacity="0.8"/>
+    {stdWheels()}
+    <rect x="3" y="44" width="7" height="3" rx="1" fill="#ff3333" opacity="0.75"/>
   </>,
 
-  // Car 5: Supercar — ultra-low wedge, big rear wing, side intakes, angular
-  super: (color, stripe) => <>
-    <path d="M6 46 Q8 36 18 30 L42 22 Q52 14 68 16 L96 22 Q114 28 114 44 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
-    <path d="M42 22 L48 13 Q56 9 68 13 L74 22 Z" fill={stripe}/>
-    <path d="M45 22 L50 15 Q56 11 66 15 L71 22 Z" fill="#aaddff" opacity="0.7"/>
-    <rect x="82" y="10" width="3" height="12" rx="1" fill="#444"/>
-    <rect x="95" y="10" width="3" height="12" rx="1" fill="#444"/>
-    <path d="M80 10 L100 10 L98 13 L82 13 Z" fill={stripe} opacity="0.8"/>
-    <path d="M16 38 L28 32 L28 42 Z" fill="#111" opacity="0.5"/>
-    <path d="M20 40 L30 35 L30 42 Z" fill={stripe} opacity="0.3"/>
+  // Car 5: McLaren P1 — teardrop profile, huge rear diffuser, dihedral doors line, roof snorkel
+  mclaren: (color, stripe) => <>
+    <path d="M6 46 Q8 36 16 30 L40 22 Q50 14 66 16 L80 20 L98 26 Q114 32 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M40 22 L46 12 Q54 8 66 12 L72 20 Z" fill={stripe}/>
+    <path d="M43 22 L48 14 Q54 10 64 14 L69 20 Z" fill="#aaddff" opacity="0.65"/>
+    <rect x="56" y="8" width="6" height="6" rx="1.5" fill="#222"/>
+    <rect x="57" y="9" width="4" height="4" rx="1" fill={stripe} opacity="0.4"/>
+    <path d="M36 30 L46 24 L48 34 Z" fill={stripe} opacity="0.15"/>
+    <path d="M102 44 L114 48 L114 54 L106 52 Z" fill="#222" opacity="0.6"/>
+    <path d="M104 46 L112 48 L112 52 L106 50 Z" fill={stripe} opacity="0.3"/>
     {stdWheels()}
-    <ellipse cx="112" cy="40" rx="4" ry="2" fill="#ffff99" opacity="0.95"/>
-    <ellipse cx="112" cy="43" rx="3" ry="1.5" fill="#ffff99" opacity="0.7"/>
-    <rect x="3" y="46" width="7" height="2.5" rx="1" fill="#ff3333" opacity="0.8"/>
-    <path d="M6 52 L14 54 L6 54 Z" fill={stripe} opacity="0.3"/>
+    <ellipse cx="112" cy="38" rx="3" ry="2" fill="#ffff99" opacity="0.9"/>
+    <ellipse cx="112" cy="42" rx="2.5" ry="1.5" fill="#ffff99" opacity="0.6"/>
+    <rect x="3" y="44" width="7" height="3" rx="1" fill="#ff3333" opacity="0.75"/>
   </>,
 
   // ── CHAMP CARS ──────────────────────────────────────────────
 
-  // Champ Lv1: Beat-up junker — dented, rusty, antenna, mismatched panels
-  beater: (color, stripe) => <>
-    <path d="M14 44 Q16 32 30 28 L42 24 L46 16 Q54 12 64 16 L68 24 L90 28 Q104 32 106 44 L106 52 Q106 58 100 58 L20 58 Q14 58 14 52 Z" fill={color}/>
-    <path d="M46 24 L48 16 Q54 12.5 62 16 L64 24 Z" fill={stripe} opacity="0.6"/>
-    <path d="M49 24 L50 18 Q54 14.5 60 18 L61 24 Z" fill="#aaddff" opacity="0.5"/>
-    <rect x="68" y="8" width="1.5" height="16" rx="0.5" fill="#888"/>
-    <circle cx="69" cy="8" r="2" fill="#ff4444" opacity="0.7"/>
-    <rect x="72" y="28" width="14" height="10" rx="2" fill={stripe} opacity="0.15"/>
-    <path d="M30 36 L38 36 L36 42 L28 42 Z" fill="#5a4a3a" opacity="0.4"/>
+  // Champ Lv1: VW Beetle — super-round body, huge rear dome, bubbly fenders
+  beetle: (color, stripe) => <>
+    <path d="M16 46 Q18 36 26 30 L36 26 L42 22 Q50 18 58 20 L64 24 Q72 22 80 18 Q92 16 98 24 L102 32 Q108 38 108 46 L108 52 Q108 58 102 58 L20 58 Q14 58 14 52 Z" fill={color}/>
+    <path d="M42 22 L46 18 Q52 15 58 18 L60 22 Z" fill={stripe} opacity="0.5"/>
+    <path d="M44 22 L47 19 Q52 16.5 57 19 L58 22 Z" fill="#aaddff" opacity="0.5"/>
+    <path d="M80 18 Q88 16 96 22 Q100 28 100 34 L96 30 Q92 22 82 22 Z" fill={color} stroke={stripe} strokeWidth="0.5" opacity="0.3"/>
+    <rect x="62" y="12" width="1.5" height="10" rx="0.5" fill="#888"/>
+    <circle cx="63" cy="11" r="1.5" fill="#ff4444" opacity="0.6"/>
     {stdWheels()}
-    <ellipse cx="104" cy="40" rx="3" ry="2.5" fill="#ffff99" opacity="0.6"/>
-    <ellipse cx="104" cy="45" rx="2.5" ry="2" fill="#ffff99" opacity="0.4"/>
-    <rect x="11" y="44" width="6" height="3.5" rx="1.5" fill="#ff3333" opacity="0.5"/>
+    <circle cx="106" cy="38" r="3" fill="#ffff99" opacity="0.7"/>
+    <circle cx="106" cy="44" r="2.5" fill="#ffff99" opacity="0.5"/>
+    <rect x="12" y="44" width="6" height="3" rx="1.5" fill="#ff3333" opacity="0.6"/>
   </>,
 
-  // Champ Lv2: Muscle car — long hood, short deck, hood scoop, wide
-  muscle: (color, stripe) => <>
-    <path d="M8 44 Q10 30 22 26 L60 20 Q66 16 74 20 L80 24 Q108 28 112 44 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={color}/>
-    <path d="M60 20 L64 12 Q68 9 76 12 L80 20 Z" fill={stripe}/>
-    <path d="M63 20 L66 14 Q68 11 74 14 L77 20 Z" fill="#aaddff" opacity="0.65"/>
-    <path d="M34 24 L52 22 L52 28 L34 28 Z" fill={stripe} opacity="0.5"/>
-    <path d="M38 22 L48 20 L48 24 L38 24 Z" fill="#222" opacity="0.4"/>
-    <rect x="14" y="36" width="92" height="2.5" rx="1" fill={stripe} opacity="0.25"/>
+  // Champ Lv2: Dodge Challenger — long flat hood, boxy, twin hood stripes, hood scoop
+  challenger: (color, stripe) => <>
+    <path d="M8 46 Q10 34 18 28 L56 22 Q62 18 70 18 L76 22 Q82 24 88 28 L106 32 Q112 36 112 46 L112 52 Q112 58 106 58 L14 58 Q8 58 8 52 Z" fill={color}/>
+    <path d="M62 22 L66 14 Q70 11 76 14 L80 22 Z" fill={stripe}/>
+    <path d="M64 22 L68 16 Q70 13 74 16 L78 22 Z" fill="#aaddff" opacity="0.6"/>
+    <rect x="24" y="26" width="30" height="2" rx="0.8" fill={stripe} opacity="0.6"/>
+    <rect x="24" y="30" width="30" height="2" rx="0.8" fill={stripe} opacity="0.6"/>
+    <path d="M40 22 L48 20 L48 26 L40 26 Z" fill="#222" opacity="0.4"/>
+    <rect x="14" y="38" width="92" height="1.5" rx="0.5" fill={stripe} opacity="0.2"/>
     {stdWheels()}
-    <ellipse cx="110" cy="40" rx="4" ry="3" fill="#ffff99" opacity="0.9"/>
-    <ellipse cx="110" cy="45" rx="3" ry="2" fill="#ffff99" opacity="0.7"/>
-    <rect x="5" y="44" width="7" height="4" rx="2" fill="#ff3333" opacity="0.8"/>
-    <path d="M5 48 L12 48 L10 52 L5 52 Z" fill={stripe} opacity="0.3"/>
+    <rect x="108" y="36" width="5" height="8" rx="1" fill="#ffff99" opacity="0.85"/>
+    <rect x="5" y="38" width="6" height="6" rx="1" fill="#ff3333" opacity="0.8"/>
   </>,
 
-  // Champ Lv3: Race car with body kit — low, big spoiler, side skirts, splitter
-  racecar: (color, stripe) => <>
-    <path d="M6 46 Q8 32 24 26 L46 18 Q56 13 72 18 L92 24 Q112 30 114 44 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
-    <path d="M46 18 L50 10 Q58 6 70 10 L76 18 Z" fill={stripe}/>
-    <path d="M49 18 L52 12 Q58 8.5 68 12 L73 18 Z" fill="#aaddff" opacity="0.7"/>
-    <rect x="78" y="8" width="3" height="10" rx="1" fill="#444"/>
-    <rect x="90" y="8" width="3" height="10" rx="1" fill="#444"/>
-    <path d="M76 8 L95 8 L94 11 L77 11 Z" fill={stripe} opacity="0.7"/>
-    <path d="M6 50 L18 52 L6 54 Z" fill={stripe} opacity="0.5"/>
-    <path d="M12 42 L108 42 L108 44 L12 44 Z" fill={stripe} opacity="0.2"/>
-    <circle cx="50" cy="30" r="5" fill="#fff" opacity="0.15"/>
-    <text x="50" y="33" textAnchor="middle" fontSize="8" fill="#fff" fontWeight="900" opacity="0.5">1</text>
+  // Champ Lv3: Porsche GT3 RS — 911-based, massive rear wing, front splitter, wide fenders
+  gt3: (color, stripe) => <>
+    <path d="M6 46 Q8 36 16 30 L32 26 L48 18 Q56 14 66 16 L72 20 Q80 22 86 20 Q96 16 102 24 L108 32 Q114 38 114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M48 18 L52 11 Q58 8 68 12 L72 20 Z" fill={stripe}/>
+    <path d="M50 18 L54 13 Q58 10 66 14 L70 20 Z" fill="#aaddff" opacity="0.6"/>
+    <rect x="84" y="6" width="3" height="14" rx="1" fill="#444"/>
+    <rect x="100" y="6" width="3" height="14" rx="1" fill="#444"/>
+    <path d="M82 6 L105 6 L104 10 L83 10 Z" fill={stripe} opacity="0.8"/>
+    <path d="M6 50 L16 52 L6 54 Z" fill={stripe} opacity="0.6"/>
+    <circle cx="54" cy="30" r="5" fill="#fff" opacity="0.12"/>
+    <text x="54" y="33" textAnchor="middle" fontSize="8" fill="#fff" fontWeight="900" opacity="0.4">1</text>
     {stdWheels()}
-    <ellipse cx="112" cy="40" rx="4" ry="2.5" fill="#ffff99" opacity="0.9"/>
-    <rect x="3" y="46" width="7" height="3" rx="1.5" fill="#ff3333" opacity="0.8"/>
+    <circle cx="112" cy="38" r="3" fill="#ffff99" opacity="0.9"/>
+    <circle cx="112" cy="44" r="2.5" fill="#ffff99" opacity="0.6"/>
+    <rect x="3" y="46" width="6" height="2.5" rx="1" fill="#ff3333" opacity="0.75"/>
   </>,
 
-  // Champ Lv4: F1 open-wheel — narrow nose, open cockpit, exposed wheels, rear wing
+  // Champ Lv4: Modern F1 — narrow nose, halo device, exposed wheels, sidepod intakes
   f1: (color, stripe) => <>
-    <path d="M24 40 L6 38 L6 42 L24 44 Z" fill={color}/>
-    <path d="M24 36 L24 48 L72 48 Q80 48 86 42 L86 36 Q80 30 72 30 L40 30 Z" fill={color}/>
-    <path d="M62 30 L66 22 Q70 20 74 22 L76 30 Z" fill="#222"/>
-    <path d="M64 30 L67 24 Q70 22 73 24 L75 30 Z" fill="#aaddff" opacity="0.5"/>
-    <path d="M86 40 L100 42 L100 46 L86 44 Z" fill={color}/>
-    <rect x="92" y="18" width="3" height="24" rx="1" fill="#444"/>
-    <rect x="102" y="18" width="3" height="24" rx="1" fill="#444"/>
-    <path d="M90 18 L107 18 L106 22 L91 22 Z" fill={stripe} opacity="0.8"/>
-    <path d="M6 36 L6 44 L10 44 L10 36 Z" fill={stripe} opacity="0.5"/>
-    <rect x="30" y="36" width="50" height="2" rx="1" fill={stripe} opacity="0.3"/>
+    <path d="M24 40 L4 38 L4 42 L24 44 Z" fill={color}/>
+    <path d="M24 34 L24 48 L74 48 Q82 48 88 42 L88 34 Q82 28 74 28 L40 28 Z" fill={color}/>
+    <path d="M64 28 L68 20 Q72 18 76 20 L78 28 Z" fill="#222"/>
+    <path d="M66 28 L69 22 Q72 20 75 22 L77 28 Z" fill="#aaddff" opacity="0.45"/>
+    <path d="M66 28 Q68 24 72 24 Q76 24 78 28" fill="none" stroke="#666" strokeWidth="2.5" strokeLinecap="round"/>
+    <path d="M88 40 L102 42 L102 46 L88 44 Z" fill={color}/>
+    <rect x="94" y="16" width="3" height="26" rx="1" fill="#444"/>
+    <rect x="104" y="16" width="3" height="26" rx="1" fill="#444"/>
+    <path d="M92 16 L109 16 L108 20 L93 20 Z" fill={stripe} opacity="0.8"/>
+    <path d="M4 36 L4 44 L8 44 L8 36 Z" fill={stripe} opacity="0.5"/>
+    <rect x="32" y="36" width="50" height="1.5" rx="0.5" fill={stripe} opacity="0.25"/>
+    <circle cx="74" cy="20" r="2" fill={stripe} opacity="0.8"/>
     <circle cx="28" cy="57" r="9" fill="#111"/><circle cx="28" cy="57" r="6" fill="#333"/><circle cx="28" cy="57" r="2.5" fill="#666"/>
-    <circle cx="96" cy="57" r="9" fill="#111"/><circle cx="96" cy="57" r="6" fill="#333"/><circle cx="96" cy="57" r="2.5" fill="#666"/>
-    <ellipse cx="4" cy="40" rx="3" ry="2" fill="#ffff99" opacity="0.8"/>
+    <circle cx="98" cy="57" r="9" fill="#111"/><circle cx="98" cy="57" r="6" fill="#333"/><circle cx="98" cy="57" r="2.5" fill="#666"/>
+    <ellipse cx="2" cy="40" rx="2.5" ry="2" fill="#ffff99" opacity="0.8"/>
   </>,
 
-  // Champ Lv5: Futuristic concept — smooth flowing curves, LED strips, canopy
-  future: (color, stripe) => <>
-    <path d="M8 46 Q10 34 20 28 L42 20 Q56 12 78 16 L98 22 Q114 30 114 44 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
-    <path d="M42 20 L50 12 Q60 8 74 12 L80 20 Z" fill={stripe} opacity="0.3"/>
-    <path d="M46 20 L52 14 Q60 10 72 14 L76 20 Z" fill="#aaddff" opacity="0.5"/>
-    <path d="M12 44 L108 44 L108 46 L12 46 Z" fill={stripe} opacity="0.6"/>
-    <path d="M20 34 L100 30 L100 32 L20 36 Z" fill={stripe} opacity="0.3"/>
-    <ellipse cx="60" cy="16" rx="14" ry="4" fill={stripe} opacity="0.08"/>
+  // Champ Lv5: Phantom X — futuristic concept, angular, canopy cockpit, enclosed wheels, LED strips
+  phantom: (color, stripe) => <>
+    <path d="M6 46 L10 34 L22 26 L44 18 L54 12 L72 14 L84 20 L100 26 L112 34 L114 46 L114 52 Q114 58 108 58 L12 58 Q6 58 6 52 Z" fill={color}/>
+    <path d="M54 18 Q60 10 72 14 L68 20 Z" fill={stripe} opacity="0.25"/>
+    <path d="M56 18 Q62 12 70 15 L67 20 Z" fill="#aaddff" opacity="0.45"/>
+    <path d="M10 44 L110 44 L110 46 L10 46 Z" fill={stripe} opacity="0.7"/>
+    <path d="M18 36 L104 32 L104 34 L18 38 Z" fill={stripe} opacity="0.35"/>
+    <path d="M88 14 L88 8 L92 8 L92 20" fill="none" stroke="#444" strokeWidth="2"/>
+    <path d="M100 14 L100 8 L104 8 L104 20" fill="none" stroke="#444" strokeWidth="2"/>
+    <path d="M86 8 L106 8 L105 11 L87 11 Z" fill={stripe} opacity="0.7"/>
+    <path d="M22 48 L42 48 Q44 48 44 50 L44 56 Q44 58 42 58 L22 58 Q20 58 20 56 L20 50 Q20 48 22 48 Z" fill="#111" opacity="0.3"/>
+    <path d="M78 48 L98 48 Q100 48 100 50 L100 56 Q100 58 98 58 L78 58 Q76 58 76 56 L76 50 Q76 48 78 48 Z" fill="#111" opacity="0.3"/>
     {stdWheels()}
-    <path d="M108 36 L114 38 L114 44 L108 44 Z" fill={stripe} opacity="0.8"/>
-    <path d="M6 44 L12 42 L12 48 L6 48 Z" fill={stripe} opacity="0.8"/>
-    <ellipse cx="112" cy="40" rx="3" ry="4" fill={stripe} opacity="0.6"/>
-    <rect x="3" y="46" width="7" height="2" rx="1" fill={stripe} opacity="0.6"/>
+    <path d="M110 36 L114 38 L114 44 L110 44 Z" fill={stripe} opacity="0.8"/>
+    <path d="M6 42 L10 40 L10 46 L6 46 Z" fill={stripe} opacity="0.8"/>
   </>,
 };
 
 // ─── CAR SVG ─────────────────────────────────────────────────────────────────
 
-function CarSVG({ color, stripe, size = 80, animating = false, flip = false, shape = "sedan" }) {
-  const renderShape = CAR_SHAPES[shape] || CAR_SHAPES.sedan;
+function CarSVG({ color, stripe, size = 80, animating = false, flip = false, shape = "gr86" }) {
+  const renderShape = CAR_SHAPES[shape] || CAR_SHAPES.gr86;
   return (
     <svg width={size} height={size * 0.55} viewBox="0 0 120 66" fill="none"
       style={{
@@ -529,7 +527,7 @@ function RaceTrack({ progress, speed, carColor, carStripe, carShape, champProgre
   const champVisualSpeed = Math.min(10, (champProgress < 100 ? 4 : 0));
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: 148, overflow: 'hidden', background: '#0a0a1a', borderRadius: 16, border: '2px solid #222' }}>
+    <div style={{ position: 'relative', width: '100%', height: 148, overflow: 'hidden', background: '#0a0a1a', borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)' }}>
       {/* Sky */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 48, background: 'linear-gradient(180deg, #050510 0%, #0a0a2a 100%)' }}/>
       {/* Stars */}
@@ -995,15 +993,15 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
             {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
           </button>
           <div style={S.bigTitle}>TURBO</div>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 24, letterSpacing: 10, color: '#ff3d00', marginTop: -8 }}>MATH RACERS</div>
+          <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 24, letterSpacing: 3, color: '#ff3d00', marginTop: -8 }}>MATH RACERS</div>
           <div style={S.coinChip}>{"\uD83E\uDE99"} {playerData?.coins || 0} COINS</div>
         </div>
 
         {/* Car showcase */}
-        <div style={{ background: '#0d0d1a', borderRadius: 16, border: '1px solid #1a1a3a', padding: '16px 0 8px', textAlign: 'center', margin: '12px 0', cursor: 'pointer' }}
+        <div style={{ background: 'rgba(13,13,26,0.7)', backdropFilter: 'blur(10px)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', padding: '16px 0 8px', textAlign: 'center', margin: '12px 0', cursor: 'pointer' }}
           onClick={() => { setRevving(r => !r); SFX.init(); SFX.play('rev'); }}>
           <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={130} animating={revving} shape={activeCar.shape}/>
-          <div style={{ color: '#666', fontSize: 14, letterSpacing: 3, marginTop: 6, fontWeight: 800 }}>{activeCar.name.toUpperCase()}</div>
+          <div style={{ color: '#666', fontSize: 14, letterSpacing: 1.5, marginTop: 6, fontWeight: 800 }}>{activeCar.name.toUpperCase()}</div>
           <div style={{ color: '#444', fontSize: 12, marginTop: 2 }}>tap to rev {"\uD83D\uDD25"}</div>
         </div>
 
@@ -1024,7 +1022,7 @@ function HomeScreen({ playerData, unlockedTiers, unlockedCars, selectedCarId, se
 
         {/* Gear status (passive display, not interactive) */}
         <div style={{ marginBottom: 14 }}>
-          <div style={{ color: '#555', fontSize: 11, fontWeight: 700, letterSpacing: 2, textAlign: 'center', marginBottom: 6 }}>UNLOCKED GEARS</div>
+          <div style={{ color: '#555', fontSize: 11, fontWeight: 700, letterSpacing: 1, textAlign: 'center', marginBottom: 6 }}>UNLOCKED GEARS</div>
           <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
             {TIERS.map(tier => {
               const on = unlockedTiers.includes(tier.id);
@@ -1061,12 +1059,12 @@ function PreRaceScreen({ unlockedTiers, unlockedLevels, selectedGear, setSelecte
       <div style={S.wrap}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           <button onClick={onBack} style={{ background: '#111', border: '1px solid #333', borderRadius: 8, padding: '8px 16px', color: '#aaa', cursor: 'pointer', fontWeight: 800, fontSize: 15, fontFamily: 'Nunito, sans-serif' }}>{"\u2190"} Back</button>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 32, color: '#ffdd00', letterSpacing: 3 }}>RACE SETUP</div>
+          <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 32, color: '#ffdd00', letterSpacing: 1 }}>RACE SETUP</div>
         </div>
 
         {/* Gear selection */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 2, marginBottom: 8 }}>SELECT GEAR</div>
+          <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>SELECT GEAR</div>
           <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
             {TIERS.map(tier => {
               const on = unlockedTiers.includes(tier.id);
@@ -1084,7 +1082,7 @@ function PreRaceScreen({ unlockedTiers, unlockedLevels, selectedGear, setSelecte
 
         {/* Level selection */}
         <div style={{ marginBottom: 16 }}>
-          <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 2, marginBottom: 8 }}>SELECT LEVEL</div>
+          <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>SELECT LEVEL</div>
           <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
             {LEVELS.map((level, i) => {
               const on = unlockedLevels.includes(level.id);
@@ -1108,10 +1106,10 @@ function PreRaceScreen({ unlockedTiers, unlockedLevels, selectedGear, setSelecte
 
         {/* Champ preview */}
         {(() => { const cc = getChampCar(selectedLevel); return (
-        <div style={{ background: '#0d0d1a', borderRadius: 16, border: '1px solid #1a1a3a', padding: '16px 0 12px', textAlign: 'center', margin: '8px 0 16px' }}>
-          <div style={{ color: '#888', fontSize: 12, fontWeight: 800, letterSpacing: 2, marginBottom: 8 }}>YOUR OPPONENT</div>
+        <div style={{ background: 'rgba(13,13,26,0.7)', backdropFilter: 'blur(10px)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', padding: '16px 0 12px', textAlign: 'center', margin: '8px 0 16px' }}>
+          <div style={{ color: '#888', fontSize: 12, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>YOUR OPPONENT</div>
           <CarSVG color={cc.color} stripe={cc.stripe} size={100} animating={true} shape={cc.shape}/>
-          <div style={{ color: '#ffd700', fontSize: 16, fontWeight: 900, letterSpacing: 2, marginTop: 6 }}>{cc.name.toUpperCase()}</div>
+          <div style={{ color: '#ffd700', fontSize: 16, fontWeight: 900, letterSpacing: 1, marginTop: 6 }}>{cc.name.toUpperCase()}</div>
           <div style={{ color: '#666', fontSize: 13, marginTop: 2 }}>
             {LEVELS.find(l => l.id === selectedLevel)?.name || 'Rookie'} Level
           </div>
@@ -1125,7 +1123,7 @@ function PreRaceScreen({ unlockedTiers, unlockedLevels, selectedGear, setSelecte
             <CarSVG color={activeCar.color} stripe={activeCar.stripe} size={60} shape={activeCar.shape}/>
             <div style={{ color: '#aaa', fontSize: 11, fontWeight: 800, marginTop: 2 }}>YOU</div>
           </div>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 28, color: '#ff3d00' }}>VS</div>
+          <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 28, color: '#ff3d00' }}>VS</div>
           <div style={{ textAlign: 'center' }}>
             <CarSVG color={cc.color} stripe={cc.stripe} size={60} animating={true} shape={cc.shape}/>
             <div style={{ color: '#ffd700', fontSize: 11, fontWeight: 800, marginTop: 2 }}>{cc.name.toUpperCase()}</div>
@@ -1163,13 +1161,13 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ color: '#666', fontSize: 11, letterSpacing: 2, fontWeight: 800 }}>QUESTION</div>
-            <div style={{ fontFamily: 'Bangers, cursive', fontSize: 26, color: '#fff' }}>{qIndex + 1} / {QUESTIONS_PER_RACE}</div>
+            <div style={{ color: '#666', fontSize: 11, letterSpacing: 1, fontWeight: 800 }}>QUESTION</div>
+            <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 26, color: '#fff' }}>{qIndex + 1} / {QUESTIONS_PER_RACE}</div>
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
             <div style={{ background: '#ffdd0011', border: '1.5px solid #ffdd0044', borderRadius: 10, padding: '6px 12px', textAlign: 'right' }}>
               <div style={{ color: '#ffdd00', fontSize: 13, fontWeight: 800 }}>COINS</div>
-              <div style={{ fontFamily: 'Bangers, cursive', fontSize: 24, color: '#ffdd00' }}>{"\uD83E\uDE99"}{sessionStats.coins}</div>
+              <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 24, color: '#ffdd00' }}>{"\uD83E\uDE99"}{sessionStats.coins}</div>
             </div>
             {/* Pause button */}
             <button onClick={onPause} style={{ background: '#0d0d1a', border: '1.5px solid #333', borderRadius: 10, padding: '10px 10px', cursor: 'pointer', color: '#888', fontSize: 16, fontWeight: 900, fontFamily: 'Nunito, sans-serif', lineHeight: 1 }}>
@@ -1200,8 +1198,8 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
         <RaceTrack progress={raceProgress} speed={feedback === 'correct' ? 10 : speed} carColor={activeCar.color} carStripe={activeCar.stripe} carShape={activeCar.shape} champProgress={champProgress} champCar={getChampCar(selectedLevel)} paused={paused}/>
 
         {/* Question card */}
-        <div style={{ background: feedback === 'correct' ? '#00e67610' : feedback === 'wrong' ? '#ff3d0010' : '#0d0d1a', border: `2px solid ${feedback === 'correct' ? '#00e676' : feedback === 'wrong' ? '#ff3d00' : '#1a1a3a'}`, borderRadius: 16, padding: '16px 20px', textAlign: 'center', margin: '10px 0', transition: 'all 0.2s' }}>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 60, letterSpacing: 4, lineHeight: 1 }}>
+        <div style={{ background: feedback === 'correct' ? '#00e67610' : feedback === 'wrong' ? '#ff3d0010' : 'rgba(13,13,26,0.7)', backdropFilter: 'blur(10px)', border: `1.5px solid ${feedback === 'correct' ? '#00e676' : feedback === 'wrong' ? '#ff3d00' : 'rgba(255,255,255,0.06)'}`, borderRadius: 16, padding: '16px 20px', textAlign: 'center', margin: '10px 0', transition: 'all 0.2s' }}>
+          <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 56, letterSpacing: 1, lineHeight: 1 }}>
             {q.a} <span style={{ color: '#ffdd00' }}>{"\u00d7"}</span> {q.b} <span style={{ color: '#333' }}>=</span> <span style={{ color: feedback ? (feedback === 'correct' ? '#00e676' : '#ff3d00') : '#555' }}>?</span>
           </div>
           {feedback === 'wrong' && <div style={{ color: '#ff6d50', fontWeight: 900, fontSize: 17, marginTop: 4 }}>{"\u2717"} The answer is <span style={{ color: '#ffaa88', fontSize: 20 }}>{q.a * q.b}</span> {"\u2014"} you'll see this again!</div>}
@@ -1228,7 +1226,7 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
             }
             return (
               <button key={idx} onClick={() => onAnswer(choice, idx)} disabled={!!feedback || paused}
-                style={{ background: bg, border: `2px solid ${border}`, borderRadius: 14, padding: '22px 10px', cursor: feedback || paused ? 'default' : 'pointer', color, fontFamily: 'Bangers, cursive', fontSize: 40, letterSpacing: 2, transition: 'all 0.15s', transform: `scale(${scale})`, boxShadow: feedback && choiceAnim === idx && isCorrectAns ? '0 0 20px #00e67644' : 'none', minHeight: 70 }}>
+                style={{ background: bg === '#111' ? 'rgba(255,255,255,0.04)' : bg, border: `1.5px solid ${border === '#222' ? 'rgba(255,255,255,0.08)' : border}`, borderRadius: 16, padding: '22px 10px', cursor: feedback || paused ? 'default' : 'pointer', color, fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 36, letterSpacing: 1, transition: 'all 0.15s', transform: `scale(${scale})`, boxShadow: feedback && choiceAnim === idx && isCorrectAns ? '0 0 20px #00e67644' : 'none', minHeight: 70 }}>
                 {choice}
               </button>
             );
@@ -1246,7 +1244,7 @@ function RaceScreen({ q, choices, qIndex, feedback, choiceAnim, raceProgress, sp
       {/* Pause overlay */}
       {paused && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 52, color: '#ffdd00', letterSpacing: 5, textShadow: '0 0 30px rgba(255,221,0,0.4)' }}>PAUSED</div>
+          <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 52, color: '#ffdd00', letterSpacing: 1, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>PAUSED</div>
           <div style={{ color: '#888', fontSize: 14, margin: '8px 0 24px', fontWeight: 700 }}>{getChampCar(selectedLevel).name} is still racing...</div>
           <button onClick={onPause} style={{ ...S.raceBtnBig, maxWidth: 300 }}>{"\u25B6\uFE0F"} RESUME</button>
         </div>
@@ -1281,12 +1279,12 @@ function ResultsScreen({ sessionStats, playerData, factData, onHome, onPreRace, 
           {raceResult === 'win' ? (
             <>
               <div style={{ fontSize: 48, animation: 'bounce 0.5s ease' }}>{"\uD83C\uDFC1"}</div>
-              <div style={{ fontFamily: 'Bangers, cursive', fontSize: 42, color: '#ffd700', letterSpacing: 4, textShadow: '0 0 20px rgba(255,215,0,0.4)' }}>YOU WIN!</div>
+              <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 42, color: '#ffd700', letterSpacing: 1, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>YOU WIN!</div>
             </>
           ) : (
             <>
               <div style={{ fontSize: 48, animation: 'bounce 0.5s ease' }}>{"\uD83C\uDFCE\uFE0F"}</div>
-              <div style={{ fontFamily: 'Bangers, cursive', fontSize: 36, color: getChampCar(selectedLevel).stripe, letterSpacing: 3 }}>{getChampCar(selectedLevel).name.toUpperCase()} WINS!</div>
+              <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 36, color: getChampCar(selectedLevel).stripe, letterSpacing: 1 }}>{getChampCar(selectedLevel).name.toUpperCase()} WINS!</div>
               <div style={{ color: '#888', fontSize: 14, marginTop: 2 }}>Keep practicing — you'll get there!</div>
             </>
           )}
@@ -1295,7 +1293,7 @@ function ResultsScreen({ sessionStats, playerData, factData, onHome, onPreRace, 
         {/* Grade badge */}
         <div style={{ textAlign: 'center', padding: '4px 0', opacity: show ? 1 : 0, transition: 'all 0.4s 0.05s' }}>
           <div style={{ fontSize: 40 }}>{grade[0]}</div>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 28, color: grade[2], letterSpacing: 2 }}>{grade[1]}</div>
+          <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 28, color: grade[2], letterSpacing: 1 }}>{grade[1]}</div>
         </div>
 
         {/* New level unlock banner */}
@@ -1379,7 +1377,7 @@ function DashboardScreen({ playerData, factData, unlockedTiers, onBack, levelDat
       <div style={S.wrap}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
           <button onClick={onBack} style={{ background: '#111', border: '1px solid #333', borderRadius: 8, padding: '8px 16px', color: '#aaa', cursor: 'pointer', fontWeight: 800, fontSize: 15, fontFamily: 'Nunito, sans-serif' }}>{"\u2190"} Back</button>
-          <div style={{ fontFamily: 'Bangers, cursive', fontSize: 32, color: '#ffdd00', letterSpacing: 3 }}>STATS</div>
+          <div style={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 32, color: '#ffdd00', letterSpacing: 1 }}>STATS</div>
         </div>
 
         <div style={S.card}>
@@ -1397,7 +1395,7 @@ function DashboardScreen({ playerData, factData, unlockedTiers, onBack, levelDat
 
         {/* Level progress */}
         <div style={{ ...S.card, marginBottom: 12 }}>
-          <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 2, marginBottom: 4 }}>LEVEL PROGRESS</div>
+          <div style={{ color: '#888', fontSize: 13, fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>LEVEL PROGRESS</div>
           {LEVELS.map((level, i) => {
             const on = dashUnlockedLevels.includes(level.id);
             const wins = levelData.wins[String(level.id)] || 0;
@@ -1501,12 +1499,12 @@ function DashboardScreen({ playerData, factData, unlockedTiers, onBack, levelDat
 const S = {
   page: { minHeight: '100vh', background: 'linear-gradient(160deg, #080812 0%, #0a0a1e 60%, #080812 100%)', display: 'flex', justifyContent: 'center', fontFamily: "'Nunito', sans-serif", color: '#fff' },
   wrap: { width: '100%', maxWidth: 430, padding: '16px 14px 36px' },
-  bigTitle: { fontFamily: 'Bangers, cursive', fontSize: 48, letterSpacing: 5, color: '#ffdd00', textShadow: '0 0 30px rgba(255,221,0,0.4), 2px 2px 0 #000', lineHeight: 1 },
-  coinChip: { display: 'inline-block', background: '#ffdd0018', border: '1.5px solid #ffdd0055', color: '#ffdd00', borderRadius: 20, padding: '5px 18px', fontSize: 16, fontWeight: 900, marginTop: 8 },
-  raceBtnBig: { width: '100%', padding: '18px 0', borderRadius: 14, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #cc2200, #ff6600)', color: '#fff', fontFamily: 'Bangers, cursive', fontSize: 26, letterSpacing: 3, boxShadow: '0 4px 24px rgba(200,50,0,0.35)', transition: 'transform 0.15s, box-shadow 0.15s' },
-  card: { background: '#0d0d1a', border: '1px solid #1a1a2a', borderRadius: 14, padding: '12px 16px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10 },
-  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #111', paddingBottom: 8 },
-  pill: { background: '#111', border: '1px solid #1a1a1a', borderRadius: 20, padding: '6px 16px', fontSize: 14, color: '#888', fontWeight: 800 },
+  bigTitle: { fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 48, letterSpacing: 1, color: '#ffdd00', textShadow: '0 2px 8px rgba(0,0,0,0.5)', lineHeight: 1 },
+  coinChip: { display: 'inline-block', background: 'rgba(255,221,0,0.08)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,221,0,0.2)', color: '#ffdd00', borderRadius: 20, padding: '5px 18px', fontSize: 16, fontWeight: 900, marginTop: 8 },
+  raceBtnBig: { width: '100%', padding: '18px 0', borderRadius: 14, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #e63600, #ff7a1a)', color: '#fff', fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: 22, letterSpacing: 1.5, boxShadow: '0 4px 20px rgba(230,54,0,0.3)', transition: 'transform 0.15s, box-shadow 0.15s' },
+  card: { background: 'rgba(13,13,26,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px 18px', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 10 },
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 8 },
+  pill: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '6px 16px', fontSize: 14, color: '#888', fontWeight: 800 },
 };
 
 function GlobalStyles() {
